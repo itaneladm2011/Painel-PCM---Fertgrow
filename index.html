@@ -169,12 +169,8 @@
     .header-right{flex-shrink:1;}
     .header-logo{height:24px;padding:4px 7px;}
     .theme-toggle-m{width:28px;height:28px;}
-    /* gráficos: em vez de espremer tudo até ficar ilegível, mantém o tamanho legível e permite arrastar pro lado */
+    /* gráficos: cada um calcula seu próprio tamanho ideal pra tela do celular via JS (isMobileView()); só arrasta pro lado quando o gráfico realmente tem muita informação pra caber */
     .chart-wrap{-webkit-overflow-scrolling:touch;}
-    #barChart, #progWeeklyChart, #progVolumeChart, #planoOrigemChart, #planoResponsavelChart{min-width:820px;}
-    #trendChart, #dispDailyChart{min-width:1150px;}
-    #dispEquipChart, #dispTurnoChart{min-width:640px;}
-    #dispMtbfChart, #dispMttrChart, #dispPlantDispChart, #dispWeeklyMtbfChart, #dispWeeklyMttrChart, #dispWeeklyChart{min-width:440px;}
 
     /* cartões retráteis: tudo fechado por padrão, toca no título pra abrir */
     .panel-title{cursor:pointer;user-select:none;}
@@ -1103,6 +1099,7 @@ async function cloudGuardBeforeSave(key, lastLoadedAt) {
 }
 
 /* ============ helpers ============ */
+function isMobileView() { return window.matchMedia("(hover:none), (max-width:900px)").matches; }
 const fmtBRL = (v) => (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const fmtBRLfull = (v) => (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
 function fmtCompact(v) {
@@ -1299,11 +1296,12 @@ function renderBarChart(items) {
   const svg = document.getElementById("barChart");
   svg.innerHTML = "";
   const n = Math.max(items.length, 1);
-  const H = 300;
-  const marginL = 66, marginR = 34, marginT = 10, marginB = 92;
-  const perItemW = 78;
-  const wide = n > 8;
-  const W = wide ? Math.max(640, marginL + marginR + n * perItemW) : 640;
+  const M = isMobileView();
+  const H = M ? 280 : 300;
+  const marginL = M ? 48 : 66, marginR = M ? 20 : 34, marginT = 10, marginB = M ? 80 : 92;
+  const perItemW = M ? 56 : 78;
+  const wide = n > (M ? 6 : 8);
+  const W = wide ? Math.max(M ? 380 : 640, marginL + marginR + n * perItemW) : (M ? 380 : 640);
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svg.style.width = wide ? `${W}px` : "100%";
   const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
@@ -1399,8 +1397,11 @@ function renderBarChart(items) {
 function renderTrendChart(months, highlightLabel) {
   const svg = document.getElementById("trendChart");
   svg.innerHTML = "";
-  const W = 900, H = 300;
-  const marginL = 74, marginR = 14, marginT = 14, marginB = 34;
+  const M = isMobileView();
+  const W = M ? 620 : 900, H = M ? 260 : 300;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.style.width = M ? `${W}px` : "100%";
+  const marginL = M ? 56 : 74, marginR = 14, marginT = 14, marginB = 34;
   const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
   const n = months.length;
   const xScale = i => marginL + (plotW/(n-1))*i;
@@ -2524,9 +2525,10 @@ function renderPlantBarChart(svgId, plantStats, valueKey, color, fmtFn, fixed100
 function renderHoursBarChart(svgId, items, color) {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
+  const M = isMobileView();
   const rowH = 30;
-  const marginL = 210, marginR = 56, marginT = 8, marginB = 8;
-  const W = 700;
+  const marginL = M ? 130 : 210, marginR = M ? 40 : 56, marginT = 8, marginB = 8;
+  const W = M ? 360 : 700;
   const list = items.length ? items : [{ label: "—", hours: 0, count: 0 }];
   const plotW = W - marginL - marginR;
   const plotH = list.length * rowH;
@@ -2687,11 +2689,17 @@ function renderWeeklyLineChart(svgId, weeks, valueKey, color, fmtFn, highlightSt
 function renderDispDailyChart(days) {
   const svg = document.getElementById("dispDailyChart");
   svg.innerHTML = "";
-  const W = 900, H = 300;
-  const marginL = 50, marginR = 14, marginT = 14, marginB = 40;
+  const M = isMobileView();
+  const n0 = Math.max(days.length, 1);
+  const marginL = M ? 34 : 50, marginR = M ? 8 : 14, marginT = 14, marginB = M ? 30 : 40;
+  const perDayW = M ? 26 : 0;
+  const W = M ? Math.max(360, marginL + marginR + n0 * perDayW) : 900;
+  const H = M ? 240 : 300;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.style.width = (M && W > 360) ? `${W}px` : "100%";
   const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
   const TRIGGER = 3;
-  const n = Math.max(days.length, 1);
+  const n = n0;
   const groupW = plotW / n;
   const barW = Math.min(26, groupW * 0.55);
 
@@ -3610,11 +3618,17 @@ function progLabelFor(item, granularity) {
 function renderProgWeeklyChart(weeks, granularity) {
   const svg = document.getElementById("progWeeklyChart");
   svg.innerHTML = "";
-  const W = 640, H = 240;
-  const marginL = 44, marginR = 10, marginT = 12, marginB = 30;
-  const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
   if (!weeks.length) return;
+  const M = isMobileView();
   const n = weeks.length;
+  const H = M ? 220 : 240;
+  const marginL = M ? 32 : 44, marginR = 10, marginT = 12, marginB = M ? 26 : 30;
+  const perPointW = M ? 60 : 0;
+  const wide = M && n > 6;
+  const W = M ? (wide ? Math.max(360, marginL+marginR+n*perPointW) : 360) : 640;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.style.width = wide ? `${W}px` : "100%";
+  const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
   const xScale = i => n === 1 ? marginL + plotW/2 : marginL + (plotW/(n-1))*i;
   const niceMax = 100;
   const yScale = v => marginT + plotH - (v/niceMax)*plotH;
@@ -3697,12 +3711,13 @@ function renderProgWeeklyChart(weeks, granularity) {
 function renderProgVolumeChart(weeks, granularity) {
   const svg = document.getElementById("progVolumeChart");
   svg.innerHTML = "";
+  const M = isMobileView();
   const n = Math.max(weeks.length, 1);
-  const H = 260;
-  const marginL = 40, marginR = 10, marginT = 10, marginB = 40;
-  const perItemW = 70;
-  const wide = n > 8;
-  const W = wide ? Math.max(640, marginL+marginR+n*perItemW) : 640;
+  const H = M ? 230 : 260;
+  const marginL = M ? 30 : 40, marginR = M ? 6 : 10, marginT = 10, marginB = M ? 32 : 40;
+  const perItemW = M ? 46 : 70;
+  const wide = n > (M ? 6 : 8);
+  const W = wide ? Math.max(M ? 360 : 640, marginL+marginR+n*perItemW) : (M ? 360 : 640);
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svg.style.width = wide ? `${W}px` : "100%";
   const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
@@ -4007,9 +4022,10 @@ function updateNavPlanoBadge() {
 function renderPlanoStackedChart(svgId, groups) {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
+  const M = isMobileView();
   const rowH = 26;
-  const marginL = 150, marginR = 46, marginT = 8, marginB = 8;
-  const W = 640;
+  const marginL = M ? 96 : 150, marginR = M ? 30 : 46, marginT = 8, marginB = 8;
+  const W = M ? 360 : 640;
   const list = groups.length ? groups : [{ label: "\u2014", noPrazo: 0, atraso: 0, pendente: 0, total: 0 }];
   const plotW = W - marginL - marginR;
   const plotH = list.length * rowH;
