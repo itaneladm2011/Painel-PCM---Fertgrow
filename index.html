@@ -154,6 +154,9 @@
   .btn.ghost{background:none;border-color:transparent;color:var(--muted3);padding:9px 8px;}
   .btn.ghost:hover{color:var(--muted);border-color:transparent;}
   .status-line{font-family:'Inter',sans-serif;font-size:11px;color:var(--muted3);margin-top:8px;}
+  .disp-source-footer{display:flex;align-items:center;gap:7px;font-family:'Inter',sans-serif;font-size:11.5px;color:var(--muted3);
+    justify-content:center;padding:10px 0 0;}
+  .disp-fail-row:hover{background:var(--line2);}
   .status-line.ok{color:var(--saldo-pos);}
   .status-line.err{color:var(--saldo-neg);}
   #fileInput{display:none;}
@@ -647,6 +650,11 @@
 
         <div class="panel">
           <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>Falhas no período <span class="tag" id="dispTableTag"></span></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            <label style="font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;">Ver só um dia</label>
+            <input type="date" id="dispTableDayFilterInput" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:#FFFFFF;border:1px solid var(--panel-border);border-radius:7px;padding:6px 9px;">
+            <button class="btn ghost" id="btnClearDispTableDay" type="button" style="display:none;">Limpar</button>
+          </div>
           <div class="table-scroll">
             <table>
               <thead>
@@ -658,8 +666,7 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="16" x2="12" y2="4"/><polyline points="6 10 12 4 18 10"/><line x1="4" y1="20" x2="20" y2="20"/></svg>Carregar planilha de disponibilidade</div>
+      <div style="display:none;">
         <div class="upload-panel" id="uploadPanelDisp">
           <div class="upload-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -675,6 +682,10 @@
             <input type="file" id="fileInputDisp" accept=".xlsx,.xls">
           </div>
         </div>
+      </div>
+      <div class="disp-source-footer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
+        Dados atualizados automaticamente a partir do sistema Evocon, a cada 1 hora.
       </div>
     </div>
 
@@ -2274,6 +2285,8 @@ document.getElementById("btnResetProg").addEventListener("click", () => {
 let dispData = null;
 let dispFilterStart = null;
 let dispFilterEnd = null;
+let dispTableDayFilter = null;
+let dispLastRangeStats = null;
 
 function dOnly(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 function dAdd(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
@@ -2828,14 +2841,34 @@ function renderDisponibilidade() {
   renderHoursBarChart("dispEquipChart", equipStats, COLOR_REALIZADO);
   renderHoursBarChart("dispTurnoChart", turnoStats, COLOR_ORCADO);
 
+  dispLastRangeStats = rangeStats;
+  renderDispFailuresTable();
+
+  renderRcaAlertInDisp();
+}
+
+function renderDispFailuresTable() {
+  const rangeStats = dispLastRangeStats;
   const tbody = document.getElementById("dispTableBody");
+  if (!rangeStats) { tbody.innerHTML = ""; return; }
   tbody.innerHTML = "";
-  const sorted = rangeStats.records.slice().sort((a,b)=> (+b.date - +a.date) || (b.hours - a.hours));
+  let records = rangeStats.records;
+  if (dispTableDayFilter) {
+    const day = dParseIso(dispTableDayFilter);
+    records = records.filter(r => +dOnly(r.date) === +day);
+  }
+  const sorted = records.slice().sort((a,b)=> (+b.date - +a.date) || (b.hours - a.hours));
+  document.getElementById("dispTableTag").textContent = dispTableDayFilter
+    ? `${sorted.length} registro(s) em ${dBR(dParseIso(dispTableDayFilter))}`
+    : `${rangeStats.count} registro(s)`;
   if (sorted.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted3);">Nenhuma falha registrada no período selecionado.</td></tr>`;
+    return;
   }
-  sorted.forEach(r => {
+  sorted.forEach((r, idx) => {
     const tr = document.createElement("tr");
+    tr.className = "disp-fail-row";
+    tr.style.cursor = "pointer";
     tr.innerHTML = `
       <td style="text-align:left;">${dBR(r.date)}</td>
       <td style="text-align:left;">${esc(r.planta)}</td>
@@ -2843,10 +2876,26 @@ function renderDisponibilidade() {
       <td style="text-align:left;">${esc(r.turno ?? "—")}</td>
       <td>${fmtHM(r.hours)}</td>
     `;
+    const detailTr = document.createElement("tr");
+    detailTr.className = "disp-fail-detail";
+    detailTr.style.display = "none";
+    const horario = (r.horaInicio && r.horaFim) ? `${esc(r.horaInicio)} às ${esc(r.horaFim)}` : null;
+    detailTr.innerHTML = `
+      <td colspan="5" style="background:var(--line2);">
+        <div style="display:flex;flex-direction:column;gap:4px;padding:4px 2px;">
+          <div><b>Descrição:</b> ${esc(r.descricao || r.falha || "—")}</div>
+          ${horario ? `<div><b>Horário:</b> ${horario}</div>` : ""}
+          <div><b>Categoria:</b> ${esc(r.codFalha || "—")}</div>
+        </div>
+      </td>
+    `;
+    tr.addEventListener("click", () => {
+      const isOpen = detailTr.style.display !== "none";
+      detailTr.style.display = isOpen ? "none" : "table-row";
+    });
     tbody.appendChild(tr);
+    tbody.appendChild(detailTr);
   });
-
-  renderRcaAlertInDisp();
 }
 
 /* ============ Análise de Falhas — lógica e render ============ */
@@ -3436,6 +3485,17 @@ document.getElementById("dispDateEnd").addEventListener("change", (e) => {
   if (dispFilterEnd < dispFilterStart) { dispFilterStart = dispFilterEnd; document.getElementById("dispDateStart").value = dIso(dispFilterStart); }
   document.querySelectorAll("#dispPresets button").forEach(b => b.classList.remove("active"));
   renderDisponibilidade();
+});
+document.getElementById("dispTableDayFilterInput").addEventListener("change", (e) => {
+  dispTableDayFilter = e.target.value || null;
+  document.getElementById("btnClearDispTableDay").style.display = dispTableDayFilter ? "inline-block" : "none";
+  renderDispFailuresTable();
+});
+document.getElementById("btnClearDispTableDay").addEventListener("click", () => {
+  dispTableDayFilter = null;
+  document.getElementById("dispTableDayFilterInput").value = "";
+  document.getElementById("btnClearDispTableDay").style.display = "none";
+  renderDispFailuresTable();
 });
 
 document.getElementById("btnMensal").addEventListener("click", ()=>{
