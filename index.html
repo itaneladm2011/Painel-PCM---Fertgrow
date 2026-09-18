@@ -2360,17 +2360,17 @@ function initDispFilterDefaults() {
   document.querySelectorAll("#dispPresets button").forEach(b => b.classList.toggle("active", b.dataset.preset === "mes"));
 }
 
-function computeDispRange(records, start, end) {
+function computeDispRange(records, start, end, plantCount) {
   const days = Math.max(1, Math.round((dOnly(end) - dOnly(start)) / 86400000) + 1);
   const inRange = records.filter(r => r.date >= start && r.date <= end);
   const totalHours = inRange.reduce((s, r) => s + r.hours, 0);
-  const poolHours = days * 22;
+  const poolHours = days * 16 * Math.max(1, plantCount || 1);
   const disponibilidade = poolHours > 0 ? Math.max(0, (1 - totalHours / poolHours) * 100) : 100;
   return { days, records: inRange, totalHours, poolHours, disponibilidade, count: inRange.length };
 }
 
 function computePlantStats(records, days, allPlants) {
-  const poolHours = days * 22;
+  const poolHours = days * 16;
   const byPlant = {};
   (allPlants || []).forEach(planta => {
     byPlant[planta] = { planta, count: 0, hours: 0 };
@@ -2396,7 +2396,7 @@ function computeEquipmentStats(records) {
     const equip = (r.falha && String(r.falha).trim()) || "—";
     const planta = (r.planta && String(r.planta).trim()) || "—";
     const key = `${planta}||${equip}`;
-    if (!byEquip[key]) byEquip[key] = { label: `PL${planta} · ${equip}`, equip, planta, hours: 0, count: 0 };
+    if (!byEquip[key]) byEquip[key] = { label: `${planta} · ${equip}`, equip, planta, hours: 0, count: 0 };
     byEquip[key].hours += r.hours;
     byEquip[key].count++;
   });
@@ -2414,8 +2414,9 @@ function computeTurnoStats(records) {
   return Object.values(byTurno).sort((a, b) => a.turno.localeCompare(b.turno, undefined, { numeric: true }));
 }
 
-function computeWeeklySeries(records, rangeStart, rangeEnd) {
+function computeWeeklySeries(records, rangeStart, rangeEnd, plantCount) {
   if (!rangeStart || !rangeEnd) return [];
+  const plants = Math.max(1, plantCount || 1);
   const today = dOnly(new Date());
   const firstWeekStart = dWeekStartSunday(rangeStart);
   const lastWeekStart = dWeekStartSunday(rangeEnd);
@@ -2430,7 +2431,7 @@ function computeWeeklySeries(records, rangeStart, rangeEnd) {
     const daysElapsed = Math.max(1, Math.round((periodEnd - rangeStart) / 86400000) + 1);
     const cumRecords = records.filter(r => r.date >= rangeStart && r.date <= periodEnd);
     const hours = cumRecords.reduce((s, r) => s + r.hours, 0);
-    const pool = daysElapsed * 22;
+    const pool = daysElapsed * 16 * plants;
     const disponibilidade = pool > 0 ? Math.max(0, (1 - hours / pool) * 100) : 100;
     const count = cumRecords.length;
     const mttr = count > 0 ? hours / count : 0;
@@ -2502,7 +2503,7 @@ function renderPlantBarChart(svgId, plantStats, valueKey, color, fmtFn, fixed100
       {key:"MTTR", val:a.mttr, color:COLOR_ORCADO, fmt:fmtHoursShort},
       {key:"Falhas", val:a.count, color:"#948F86", fmt:fmtInt},
     ];
-    bar.addEventListener("mousemove",(evt)=> showTooltip(evt, isGeral ? "Geral (todas as plantas)" : `Planta ${a.planta}`, tooltipRows));
+    bar.addEventListener("mousemove",(evt)=> showTooltip(evt, isGeral ? "Geral (todas as plantas)" : `${a.planta}`, tooltipRows));
     bar.addEventListener("mouseleave", hideTooltip);
     svg.appendChild(bar);
     if (val > 0) {
@@ -2514,7 +2515,7 @@ function renderPlantBarChart(svgId, plantStats, valueKey, color, fmtFn, fixed100
       svg.appendChild(l);
     }
     const label = el("text",{x:gx,y:marginT+plotH+18,"text-anchor":"middle","font-size":9.5,fill: isGeral ? "#221610" : "#34302B","font-weight": isGeral ? 700 : 600,"font-family":"'IBM Plex Mono',monospace"});
-    label.textContent = isGeral ? "GERAL" : `PL${a.planta}`;
+    label.textContent = isGeral ? "GERAL" : `${a.planta}`;
     svg.appendChild(label);
   });
 
@@ -2765,9 +2766,10 @@ function renderDispDailyChart(days) {
 /* ============ render principal do painel de Disponibilidade ============ */
 function renderDisponibilidade() {
   if (!dispData) return;
-  const rangeStats = computeDispRange(dispData.records, dispFilterStart, dispFilterEnd);
+  const plantCount = Math.max(1, (dispData.plants || []).length);
+  const rangeStats = computeDispRange(dispData.records, dispFilterStart, dispFilterEnd, plantCount);
   const plantStats = computePlantStats(rangeStats.records, rangeStats.days, dispData.plants);
-  const weeks = computeWeeklySeries(dispData.records, dispFilterStart, dispFilterEnd);
+  const weeks = computeWeeklySeries(dispData.records, dispFilterStart, dispFilterEnd, plantCount);
   const dailySeries = computeDailySeries(dispData.records, dispFilterStart, dispFilterEnd);
 
   const rangeLabel = (+dispFilterStart === +dispFilterEnd) ? dBR(dispFilterStart) : `${dBR(dispFilterStart)} a ${dBR(dispFilterEnd)}`;
@@ -2783,7 +2785,7 @@ function renderDisponibilidade() {
     <div class="kpi-card">
       <div class="kpi-label" style="color:${COLOR_REALIZADO}">Disponibilidade</div>
       <div class="kpi-value">${fmtPct(rangeStats.disponibilidade)}</div>
-      <div class="kpi-sub">base: ${rangeStats.days} dia(s) × 22h</div>
+      <div class="kpi-sub">base: ${rangeStats.days} dia(s) × 16h</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Horas de falha</div>
@@ -2834,7 +2836,7 @@ function renderDisponibilidade() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td style="text-align:left;">${dBR(r.date)}</td>
-      <td style="text-align:left;">Planta ${esc(r.planta)}</td>
+      <td style="text-align:left;">${esc(r.planta)}</td>
       <td style="text-align:left;">${esc(r.falha || r.descricao || r.codFalha || "—")}</td>
       <td style="text-align:left;">${esc(r.turno ?? "—")}</td>
       <td>${fmtHM(r.hours)}</td>
