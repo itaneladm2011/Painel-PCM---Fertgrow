@@ -96,6 +96,20 @@
 
   .header{margin-bottom:22px;padding:20px 24px;border-radius:14px;background:var(--realizado);border-bottom:3px solid var(--lime);display:flex;align-items:center;justify-content:space-between;gap:16px;}
   .header-logo{height:34px;width:auto;display:block;flex-shrink:0;background:#fff;padding:6px 10px;border-radius:8px;box-sizing:content-box;}
+  .header-right{display:flex;align-items:center;gap:0;flex-shrink:0;}
+  .theme-toggle-m{display:none;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 auto;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;cursor:pointer;}
+  .theme-toggle-m:hover{background:rgba(255,255,255,.2);}
+
+  .mobile-tabbar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:300;
+    background:var(--realizado);border-top:1px solid rgba(255,255,255,.15);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    box-shadow:0 -4px 16px rgba(0,0,0,.18);}
+  .mobile-tab-item{position:relative;flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    background:transparent;border:none;color:rgba(255,255,255,.62);padding:6px 2px;border-radius:8px;cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.01em;}
+  .mobile-tab-item.active{color:#fff;background:rgba(255,255,255,.14);}
+  .mobile-tab-badge{position:absolute;top:2px;right:14%;padding:1px 4px;font-size:9px;border-radius:8px;}
 
   .sheet-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
   .sheet-tab{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.02em;
@@ -148,16 +162,31 @@
   @media (max-width:860px){.layout{grid-template-columns:1fr;}}
   @media (hover:none), (max-width:900px){
     .app-shell{display:flex;flex-direction:column;}
-    .primary-sidebar{width:100%;position:static;height:auto;max-height:none;
-      border-right:none;border-bottom:1px solid var(--panel-border);
-      transform:none !important;box-shadow:none;transition:none;}
-    .content-inner{padding:22px 16px 50px;}
+    .sidebar-hover-zone{display:none;}
+    .content-inner{padding:16px 14px 90px;}
+    .header{padding:14px 16px;flex-wrap:wrap;}
+    h1{font-size:19px;}
+    .header-right{flex-shrink:1;}
+    .header-logo{height:24px;padding:4px 7px;}
+    .theme-toggle-m{width:28px;height:28px;}
     /* gráficos: em vez de espremer tudo até ficar ilegível, mantém o tamanho legível e permite arrastar pro lado */
     .chart-wrap{-webkit-overflow-scrolling:touch;}
     #barChart, #progWeeklyChart, #progVolumeChart, #planoOrigemChart, #planoResponsavelChart{min-width:820px;}
     #trendChart, #dispDailyChart{min-width:1150px;}
     #dispEquipChart, #dispTurnoChart{min-width:640px;}
     #dispMtbfChart, #dispMttrChart, #dispPlantDispChart, #dispWeeklyMtbfChart, #dispWeeklyMttrChart, #dispWeeklyChart{min-width:440px;}
+
+    /* cartões retráteis: tudo fechado por padrão, toca no título pra abrir */
+    .panel-title{cursor:pointer;user-select:none;}
+    .panel-toggle-chevron{margin-left:auto;flex:0 0 auto;display:flex;transition:transform .15s ease;color:var(--muted3);}
+    .panel.panel-collapsed .panel-toggle-chevron{transform:rotate(-90deg);}
+    .panel.panel-collapsed .panel-body-collapsible{display:none;}
+    .panel-body-collapsible{margin-top:14px;}
+
+    /* barra de navegação fixa embaixo, estilo app */
+    .mobile-tabbar{display:flex;}
+    .header-right{gap:8px;}
+    .theme-toggle-m{display:flex;}
   }
   .main-content{min-width:0;}
 
@@ -424,7 +453,12 @@
 
     <div class="header">
       <h1 id="pageTitle">Painel de acompanhamento OPEX - Ciclo 26/27</h1>
-      <img class="header-logo" id="headerLogo" alt="Fertgrow">
+      <div class="header-right">
+        <button class="theme-toggle-m" id="themeToggleM" type="button" title="Alternar tema" aria-label="Alternar tema">
+          <svg id="themeToggleIconM" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <img class="header-logo" id="headerLogo" alt="Fertgrow">
+      </div>
     </div>
 
     <div id="panelCustos">
@@ -433,7 +467,7 @@
 
       <main class="main-content">
 
-    <div class="panel">
+    <div class="panel no-collapse">
       <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Trilha do ciclo <span class="tag">12 meses</span></div>
       <div class="cycle-track-wrap">
         <div class="cycle-track-line"></div>
@@ -532,7 +566,7 @@
       </div>
 
       <div id="dispDashboard" style="display:none;">
-        <div class="panel">
+        <div class="panel no-collapse">
           <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Período de referência <span class="tag" id="dispRangeTag"></span></div>
           <div class="date-filter-row">
             <div class="date-filter-field">
@@ -777,7 +811,7 @@
       </div>
 
       <div id="progDashboard" style="display:none;">
-        <div class="panel">
+        <div class="panel no-collapse">
           <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Período de referência <span class="tag" id="progRangeTag"></span></div>
           <div class="date-filter-row">
             <div class="date-filter-field">
@@ -986,6 +1020,30 @@
     <footer>DADOS — CONTROLE ORÇADO × REALIZADO · 502 · CICLO 26/27</footer>
       </div>
     </div>
+    <nav class="mobile-tabbar" id="mobileTabbar">
+      <button class="mobile-tab-item active" id="navCustosM" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>
+        <span>Custos</span>
+      </button>
+      <button class="mobile-tab-item" id="navDisponibilidadeM" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        <span>Disponib.</span>
+      </button>
+      <button class="mobile-tab-item" id="navAnaliseFalhasM" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.3" y1="15.3" x2="21" y2="21"/><line x1="8" y1="10.5" x2="13" y2="10.5"/><line x1="10.5" y1="8" x2="10.5" y2="13"/></svg>
+        <span>Falhas</span>
+        <span class="nav-badge mobile-tab-badge" id="navAnaliseBadgeM" style="display:none;">0</span>
+      </button>
+      <button class="mobile-tab-item" id="navProgramacaoM" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg>
+        <span>Program.</span>
+      </button>
+      <button class="mobile-tab-item" id="navPlanoAcaoM" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 11.5l2 2 4-4"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
+        <span>Plano</span>
+        <span class="nav-badge mobile-tab-badge" id="navPlanoAcaoBadgeM" style="display:none;">0</span>
+      </button>
+    </nav>
   </div>
 
   <div id="tooltip"></div>
@@ -2800,10 +2858,11 @@ function rcaPendingDays() {
 }
 
 function updateNavAnaliseBadge() {
-  const badge = document.getElementById("navAnaliseBadge");
   const pending = dispData ? rcaPendingDays().length : 0;
-  badge.textContent = String(pending);
-  badge.style.display = pending > 0 ? "inline-block" : "none";
+  [document.getElementById("navAnaliseBadge"), document.getElementById("navAnaliseBadgeM")].forEach(badge => {
+    badge.textContent = String(pending);
+    badge.style.display = pending > 0 ? "inline-block" : "none";
+  });
 }
 
 function renderRcaAlertInDisp() {
@@ -3935,12 +3994,13 @@ function statusBucketColor(b) {
 }
 
 function updateNavPlanoBadge() {
-  const badge = document.getElementById("navPlanoAcaoBadge");
   const all = getAllPlanoActions();
   const today = dOnly(new Date());
   const overdue = all.filter(a => a.statusBucket === "pendente" && a.prazo && dParseIso(a.reprogramado || a.prazo) < today).length;
-  badge.textContent = String(overdue);
-  badge.style.display = overdue > 0 ? "inline-block" : "none";
+  [document.getElementById("navPlanoAcaoBadge"), document.getElementById("navPlanoAcaoBadgeM")].forEach(badge => {
+    badge.textContent = String(overdue);
+    badge.style.display = overdue > 0 ? "inline-block" : "none";
+  });
 }
 
 /* ============ gr\u00e1fico: barras horizontais empilhadas por status ============ */
@@ -4182,6 +4242,12 @@ function switchApp(name) {
   document.getElementById("navAnaliseFalhas").classList.toggle("active", name === "analise");
   document.getElementById("navProgramacao").classList.toggle("active", name === "programacao");
   document.getElementById("navPlanoAcao").classList.toggle("active", name === "planoacao");
+  document.getElementById("navCustosM").classList.toggle("active", name === "custos");
+  document.getElementById("navDisponibilidadeM").classList.toggle("active", name === "disponibilidade");
+  document.getElementById("navAnaliseFalhasM").classList.toggle("active", name === "analise");
+  document.getElementById("navProgramacaoM").classList.toggle("active", name === "programacao");
+  document.getElementById("navPlanoAcaoM").classList.toggle("active", name === "planoacao");
+  window.scrollTo(0, 0);
   document.getElementById("pageTitle").textContent = name === "disponibilidade"
     ? "Painel de acompanhamento - Disponibilidade de ativos"
     : name === "analise"
@@ -4199,6 +4265,11 @@ document.getElementById("navDisponibilidade").addEventListener("click", () => sw
 document.getElementById("navAnaliseFalhas").addEventListener("click", () => switchApp("analise"));
 document.getElementById("navProgramacao").addEventListener("click", () => switchApp("programacao"));
 document.getElementById("navPlanoAcao").addEventListener("click", () => switchApp("planoacao"));
+document.getElementById("navCustosM").addEventListener("click", () => switchApp("custos"));
+document.getElementById("navDisponibilidadeM").addEventListener("click", () => switchApp("disponibilidade"));
+document.getElementById("navAnaliseFalhasM").addEventListener("click", () => switchApp("analise"));
+document.getElementById("navProgramacaoM").addEventListener("click", () => switchApp("programacao"));
+document.getElementById("navPlanoAcaoM").addEventListener("click", () => switchApp("planoacao"));
 document.getElementById("headerLogo").src = document.querySelector(".brand-logo-sb").src;
 
 const SUN_ICON = '<path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4l1.4-1.4M17 7l1.4-1.4"/><circle cx="12" cy="12" r="4"/>';
@@ -4207,9 +4278,14 @@ function applyTheme(theme){
   document.documentElement.setAttribute("data-theme", theme);
   document.getElementById("themeToggleIcon").innerHTML = theme === "dark" ? SUN_ICON : MOON_ICON;
   document.getElementById("themeToggleLabel").textContent = theme === "dark" ? "Tema claro" : "Tema escuro";
+  document.getElementById("themeToggleIconM").innerHTML = theme === "dark" ? SUN_ICON : MOON_ICON;
   localStorage.setItem("theme", theme);
 }
 document.getElementById("themeToggle").addEventListener("click", () => {
+  const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  applyTheme(current === "dark" ? "light" : "dark");
+});
+document.getElementById("themeToggleM").addEventListener("click", () => {
   const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
   applyTheme(current === "dark" ? "light" : "dark");
 });
@@ -4358,7 +4434,34 @@ document.getElementById("loginLogo").src = document.querySelector(".brand-logo-s
 function showApp() {
   document.getElementById("loginGate").style.display = "none";
   document.getElementById("appShell").style.display = "";
+  initMobileAccordions();
   init();
+}
+/* ============ cartões retráteis (mobile) ============ */
+function initMobileAccordions() {
+  document.querySelectorAll(".panel").forEach(panel => {
+    if (panel.dataset.accordionInit || panel.classList.contains("no-collapse")) return;
+    const title = panel.querySelector(":scope > .panel-title");
+    if (!title) return;
+    panel.dataset.accordionInit = "1";
+    const body = document.createElement("div");
+    body.className = "panel-body-collapsible";
+    let node = title.nextSibling;
+    while (node) {
+      const next = node.nextSibling;
+      body.appendChild(node);
+      node = next;
+    }
+    panel.appendChild(body);
+    const chevron = document.createElement("span");
+    chevron.className = "panel-toggle-chevron";
+    chevron.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    title.appendChild(chevron);
+    panel.classList.add("panel-collapsed");
+    title.addEventListener("click", () => {
+      panel.classList.toggle("panel-collapsed");
+    });
+  });
 }
 function showLoginGate() {
   document.getElementById("appShell").style.display = "none";
