@@ -152,6 +152,12 @@
       border-right:none;border-bottom:1px solid var(--panel-border);
       transform:none !important;box-shadow:none;transition:none;}
     .content-inner{padding:22px 16px 50px;}
+    /* gráficos: em vez de espremer tudo até ficar ilegível, mantém o tamanho legível e permite arrastar pro lado */
+    .chart-wrap{-webkit-overflow-scrolling:touch;}
+    #barChart, #progWeeklyChart, #progVolumeChart, #planoOrigemChart, #planoResponsavelChart{min-width:820px;}
+    #trendChart, #dispDailyChart{min-width:1150px;}
+    #dispEquipChart, #dispTurnoChart{min-width:640px;}
+    #dispMtbfChart, #dispMttrChart, #dispPlantDispChart, #dispWeeklyMtbfChart, #dispWeeklyMttrChart, #dispWeeklyChart{min-width:440px;}
   }
   .main-content{min-width:0;}
 
