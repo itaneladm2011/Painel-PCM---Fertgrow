@@ -2424,8 +2424,10 @@ function computeWeeklySeries(records, rangeStart, rangeEnd, plantCount) {
   for (let ws = firstWeekStart; ws <= lastWeekStart; ws = dAdd(ws, 7)) {
     if (ws > today) continue;
     const weEnd = dAdd(ws, 6);
-    if (ws < rangeStart || weEnd > rangeEnd) continue; // semana quebrada pelo período filtrado (não fechada de domingo a sábado dentro do período)
-    let periodEnd = weEnd > today ? today : weEnd;
+    // semanas que começam antes do período filtrado (início do mês) ou terminam depois dele (fim do mês/
+    // semana corrente) continuam aparecendo, mas contam só os dias dentro do período — não descarta mais a semana inteira
+    let periodEnd = weEnd > rangeEnd ? rangeEnd : weEnd;
+    if (periodEnd > today) periodEnd = today;
     if (periodEnd < rangeStart) continue;
     // acumulado desde o início do período filtrado até o fim desta semana (retrato de como cada semana terminou)
     const daysElapsed = Math.max(1, Math.round((periodEnd - rangeStart) / 86400000) + 1);
@@ -2828,7 +2830,7 @@ function renderDisponibilidade() {
 
   const tbody = document.getElementById("dispTableBody");
   tbody.innerHTML = "";
-  const sorted = rangeStats.records.slice().sort((a,b)=> b.hours - a.hours);
+  const sorted = rangeStats.records.slice().sort((a,b)=> (+b.date - +a.date) || (b.hours - a.hours));
   if (sorted.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted3);">Nenhuma falha registrada no período selecionado.</td></tr>`;
   }
