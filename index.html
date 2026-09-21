@@ -13,7 +13,7 @@
     --bg:#F2F2F0; --panel:#FFFFFF; --panel-border:#E3E3DF;
     --line:#EAEAE6; --line2:#F0F0EC; --text:#34302B; --text-strong:#221610;
     --muted:#6E6A63; --muted2:#7D7972; --muted3:#948F86; --muted4:#CFCBC3;
-    --orcado:#5C6B5D; --realizado:#005328; --saldo-pos:#1F7A3A; --saldo-neg:#B3261E;
+    --orcado:#5C6B5D; --realizado:#005328; --saldo-pos:#1F7A3A; --saldo-neg:#B3261E; --tratado:#1F5FA8;
     --consolidado:#4F6B28;
     --status-warning:#8A6B10; --status-neutral:#948F86;
     --lime:#AED476; --cream:#FFF5CD;
@@ -637,7 +637,8 @@
           <div class="chart-wrap"><svg id="dispDailyChart" width="100%" viewBox="0 0 900 300" preserveAspectRatio="xMidYMid meet"></svg></div>
           <div class="legend">
             <span class="legend-item"><span class="legend-swatch" style="background:var(--realizado)"></span>Abaixo do gatilho</span>
-            <span class="legend-item"><span class="legend-swatch" style="background:var(--saldo-neg)"></span>≥ 3h no dia (gatilho)</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:var(--saldo-neg)"></span>≥ 3h no dia (gatilho) — análise pendente</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:var(--tratado)"></span>≥ 3h no dia — analisado ou dispensado</span>
           </div>
         </div>
 
@@ -1167,6 +1168,7 @@ const COLOR_ORCADO = "#5C6B5D";
 const COLOR_REALIZADO = "#005328";
 const COLOR_SALDO_POS = "#1F7A3A";
 const COLOR_SALDO_NEG = "#B3261E";
+const COLOR_TRATADO = "#1F5FA8"; // dia que atingiu o gatilho mas já foi analisado ou dispensado
 const COLOR_CONSOLIDADO = "#4F6B28";
 const COLOR_STATUS_WARNING = "#8A6B10";
 const COLOR_STATUS_GOOD = "#1F7A3A";
@@ -2804,6 +2806,10 @@ function renderDispDailyChart(days) {
   gradTrigger.appendChild(el("stop", {offset:"0%", "stop-color":lighten(COLOR_SALDO_NEG, 0.3)}));
   gradTrigger.appendChild(el("stop", {offset:"100%", "stop-color":COLOR_SALDO_NEG}));
   defs.appendChild(gradTrigger);
+  const gradHandled = el("linearGradient", {id:"gradDailyHandled", x1:"0", y1:"0", x2:"0", y2:"1"});
+  gradHandled.appendChild(el("stop", {offset:"0%", "stop-color":lighten(COLOR_TRATADO, 0.3)}));
+  gradHandled.appendChild(el("stop", {offset:"100%", "stop-color":COLOR_TRATADO}));
+  defs.appendChild(gradHandled);
   const dispShadow2 = el("filter", {id:"dispBarShadow2", x:"-40%", y:"-40%", width:"180%", height:"180%"});
   dispShadow2.appendChild(el("feDropShadow", {dx:"0", dy:"1", stdDeviation:"1.2", "flood-color":"#221610", "flood-opacity":"0.16"}));
   defs.appendChild(dispShadow2);
@@ -2863,13 +2869,17 @@ function renderDispDailyChart(days) {
     const gx = gxOf(i);
     const h = (d.hours/niceMax)*plotH;
     const isTrigger = d.hours >= TRIGGER;
-    const barAttrs = {d:roundedTopBarPath(gx-barW/2, marginT+plotH-h, barW, Math.max(h,0), mode==="normal" ? 4 : Math.min(2, barW/2)), fill:isTrigger?"url(#gradDailyTrigger)":"url(#gradDailyOk)"};
+    const rca = isTrigger ? rcaStore[dIso(d.date)] : null; // gatilho já tratado: análise concluída ou dispensada
+    const isHandled = !!rca;
+    const barColor = isHandled ? COLOR_TRATADO : (isTrigger ? COLOR_SALDO_NEG : COLOR_REALIZADO);
+    const barAttrs = {d:roundedTopBarPath(gx-barW/2, marginT+plotH-h, barW, Math.max(h,0), mode==="normal" ? 4 : Math.min(2, barW/2)), fill:isHandled?"url(#gradDailyHandled)":(isTrigger?"url(#gradDailyTrigger)":"url(#gradDailyOk)")};
     if (mode === "normal") barAttrs.filter = "url(#dispBarShadow2)";
     const bar = el("path", barAttrs);
     const tipRows = [
-      {key:"Horas de falha", val:d.hours, color: isTrigger?COLOR_SALDO_NEG:COLOR_REALIZADO, fmt:fmtHoursShort},
+      {key:"Horas de falha", val:d.hours, color:barColor, fmt:fmtHoursShort},
       {key:"Nº de falhas", val:d.count, color:"#948F86", fmt:fmtInt},
     ];
+    if (isHandled) tipRows.push({key:"Gatilho", val:rca.dispensada ? "Análise dispensada" : "Análise concluída", color:COLOR_TRATADO, fmt:(v)=>esc(v)});
     bar.style.cursor = "pointer";
     bar.addEventListener("mousemove",(evt)=> showTooltip(evt, dBR(d.date), tipRows));
     bar.addEventListener("mouseleave", hideTooltip);
@@ -2883,7 +2893,7 @@ function renderDispDailyChart(days) {
       svg.appendChild(hit);
     }
     if (d.hours > 0 && (mode === "normal" || valueLabelSet.has(i))) {
-      const l = el("text",{x:gx,y:marginT+plotH-h-6,"text-anchor":"middle","font-size":8,fill:isTrigger?COLOR_SALDO_NEG:COLOR_REALIZADO,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
+      const l = el("text",{x:gx,y:marginT+plotH-h-6,"text-anchor":"middle","font-size":8,fill:barColor,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
       l.textContent = fmtHoursShort(d.hours);
       svg.appendChild(l);
     }
@@ -2955,6 +2965,7 @@ function renderDisponibilidade() {
   renderWeeklyLineChart("dispWeeklyMtbfChart", weeks, "mtbf", COLOR_REALIZADO, fmtHoursShort, dispFilterStart, false);
   renderWeeklyLineChart("dispWeeklyMttrChart", weeks, "mttr", COLOR_ORCADO, fmtHoursShort, dispFilterStart, false);
   renderWeeklyLineChart("dispWeeklyChart", weeks, "disponibilidade", COLOR_REALIZADO, fmtPct, dispFilterStart, true);
+  dispLastDailySeries = dailySeries;
   renderDispDailyChart(dailySeries);
 
   const equipStats = capTopItems(computeEquipmentStats(rangeStats.records), 15);
@@ -2965,7 +2976,7 @@ function renderDisponibilidade() {
   dispLastRangeStats = rangeStats;
   renderDispFailuresTable();
 
-  renderRcaAlertInDisp();
+  renderRcaAlertInDisp(true); // gráfico diário já foi desenhado acima
 }
 
 function renderDispFailuresTable() {
@@ -3054,10 +3065,13 @@ function updateNavAnaliseBadge() {
   });
 }
 
-function renderRcaAlertInDisp() {
+let dispLastDailySeries = null;
+function renderRcaAlertInDisp(skipChart) {
   const panel = document.getElementById("dispRcaAlertPanel");
   const pending = rcaPendingDays();
   updateNavAnaliseBadge();
+  // barras do gráfico de horas por dia mudam de cor quando o gatilho é tratado (análise feita ou dispensada)
+  if (!skipChart && dispLastDailySeries) renderDispDailyChart(dispLastDailySeries);
   if (pending.length === 0) { panel.style.display = "none"; return; }
   panel.style.display = "";
   document.getElementById("dispRcaTag").textContent = `${pending.length} pendente(s)`;
