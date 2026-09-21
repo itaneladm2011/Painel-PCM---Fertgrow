@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -219,6 +219,8 @@
 
   .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
   @media (max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr);}}
+  #planoKpiRow{grid-template-columns:repeat(5,1fr);}
+  @media (max-width:900px){#planoKpiRow{grid-template-columns:repeat(2,1fr);}#planoKpiRow .kpi-card:first-child{grid-column:1 / -1;}}
   .kpi-card{background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
   .kpi-label{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:8px;}
   .kpi-value{font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--text-strong);}
@@ -938,7 +940,27 @@
         <div class="legend">
           <span class="legend-item"><span class="legend-swatch" style="background:var(--realizado)"></span>Realizada no prazo</span>
           <span class="legend-item"><span class="legend-swatch" style="background:#B08900"></span>Realizada com atraso</span>
-          <span class="legend-item"><span class="legend-swatch" style="background:#948F86"></span>Pendente</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#948F86"></span>Dentro do prazo</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--saldo-neg)"></span>Atrasada</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>Todas as ações <span class="tag" id="planoTableTag"></span></div>
+        <div class="view-toggle" id="planoStatusFilter" style="margin-bottom:12px;">
+          <button data-status="todas" class="active" type="button">Todas</button>
+          <button data-status="no_prazo" type="button">Realizada no prazo</button>
+          <button data-status="atraso" type="button">Realizada com atraso</button>
+          <button data-status="dentro_prazo" type="button">Dentro do prazo</button>
+          <button data-status="atrasada" type="button">Atrasada</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th style="text-align:left;">Ação</th><th style="text-align:left;">Origem</th><th style="text-align:left;">Responsável</th><th style="text-align:left;">Prazo</th><th style="text-align:left;">Status</th><th></th></tr>
+            </thead>
+            <tbody id="planoTableBody"></tbody>
+          </table>
         </div>
       </div>
 
@@ -1032,24 +1054,6 @@
             <button type="button" class="btn ghost" id="btnCancelPlanoManual" style="display:none;">Cancelar edição</button>
           </div>
         </form>
-      </div>
-
-      <div class="panel">
-        <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>Todas as ações <span class="tag" id="planoTableTag"></span></div>
-        <div class="view-toggle" id="planoStatusFilter" style="margin-bottom:12px;">
-          <button data-status="todas" class="active" type="button">Todas</button>
-          <button data-status="no_prazo" type="button">Realizada no prazo</button>
-          <button data-status="atraso" type="button">Realizada com atraso</button>
-          <button data-status="pendente" type="button">Pendente</button>
-        </div>
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr><th style="text-align:left;">Ação</th><th style="text-align:left;">Origem</th><th style="text-align:left;">Responsável</th><th style="text-align:left;">Prazo</th><th style="text-align:left;">Status</th><th></th></tr>
-            </thead>
-            <tbody id="planoTableBody"></tbody>
-          </table>
-        </div>
       </div>
     </div>
 
@@ -4338,7 +4342,9 @@ function classifyPlanoStatus(a) {
     if (!prazoDate || !a.dataConclusao) return "no_prazo";
     return +dParseIso(a.dataConclusao) <= +prazoDate ? "no_prazo" : "atraso";
   }
-  return "pendente";
+  // ação em aberto: só é "atrasada" quando o prazo vigente (reprogramado, se houver) já passou; antes disso está dentro do prazo
+  if (prazoDate && prazoDate < dOnly(new Date())) return "atrasada";
+  return "dentro_prazo";
 }
 
 function getAllPlanoActions() {
@@ -4373,18 +4379,18 @@ function getAllPlanoActions() {
 function statusBucketLabel(b) {
   if (b === "no_prazo") return "Realizada no prazo";
   if (b === "atraso") return "Realizada com atraso";
-  return "Pendente";
+  if (b === "atrasada") return "Atrasada";
+  return "Dentro do prazo";
 }
 function statusBucketColor(b) {
   if (b === "no_prazo") return COLOR_REALIZADO;
   if (b === "atraso") return "#B08900";
+  if (b === "atrasada") return COLOR_SALDO_NEG;
   return "#948F86";
 }
 
 function updateNavPlanoBadge() {
-  const all = getAllPlanoActions();
-  const today = dOnly(new Date());
-  const overdue = all.filter(a => a.statusBucket === "pendente" && a.prazo && dParseIso(a.reprogramado || a.prazo) < today).length;
+  const overdue = getAllPlanoActions().filter(a => a.statusBucket === "atrasada").length;
   [document.getElementById("navPlanoAcaoBadge"), document.getElementById("navPlanoAcaoBadgeM")].forEach(badge => {
     badge.textContent = String(overdue);
     badge.style.display = overdue > 0 ? "inline-block" : "none";
@@ -4399,7 +4405,7 @@ function renderPlanoStackedChart(svgId, groups) {
   const rowH = 26;
   const marginL = M ? 96 : 150, marginR = M ? 30 : 46, marginT = 8, marginB = 8;
   const W = M ? 360 : 640;
-  const list = groups.length ? groups : [{ label: "\u2014", noPrazo: 0, atraso: 0, pendente: 0, total: 0 }];
+  const list = groups.length ? groups : [{ label: "\u2014", noPrazo: 0, atraso: 0, dentroPrazo: 0, atrasada: 0, total: 0 }];
   const plotW = W - marginL - marginR;
   const plotH = list.length * rowH;
   const H = plotH + marginT + marginB;
@@ -4416,7 +4422,7 @@ function renderPlanoStackedChart(svgId, groups) {
     svg.appendChild(label);
 
     let cx = marginL;
-    [["noPrazo", COLOR_REALIZADO], ["atraso", "#B08900"], ["pendente", "#948F86"]].forEach(([key, color]) => {
+    [["noPrazo", COLOR_REALIZADO], ["atraso", "#B08900"], ["dentroPrazo", "#948F86"], ["atrasada", COLOR_SALDO_NEG]].forEach(([key, color]) => {
       const w = Math.max(0, xScale(g[key]));
       if (w > 0) {
         const rect = el("rect", { x: cx, y: gy - barH / 2, width: w, height: barH, fill: color });
@@ -4424,7 +4430,8 @@ function renderPlanoStackedChart(svgId, groups) {
         rect.addEventListener("mousemove", (evt) => showTooltip(evt, g.label, [
           { key: "Realizada no prazo", val: g.noPrazo, color: COLOR_REALIZADO, fmt: fmtInt },
           { key: "Realizada com atraso", val: g.atraso, color: "#B08900", fmt: fmtInt },
-          { key: "Pendente", val: g.pendente, color: "#948F86", fmt: fmtInt },
+          { key: "Dentro do prazo", val: g.dentroPrazo, color: "#948F86", fmt: fmtInt },
+          { key: "Atrasada", val: g.atrasada, color: COLOR_SALDO_NEG, fmt: fmtInt },
         ]));
         rect.addEventListener("mouseleave", hideTooltip);
         svg.appendChild(rect);
@@ -4442,8 +4449,9 @@ function groupPlanoActions(list, keyFn) {
   const byKey = {};
   list.forEach(a => {
     const key = keyFn(a) || "\u2014";
-    if (!byKey[key]) byKey[key] = { label: key, noPrazo: 0, atraso: 0, pendente: 0, total: 0 };
-    byKey[key][a.statusBucket === "no_prazo" ? "noPrazo" : a.statusBucket]++;
+    if (!byKey[key]) byKey[key] = { label: key, noPrazo: 0, atraso: 0, dentroPrazo: 0, atrasada: 0, total: 0 };
+    const field = { no_prazo: "noPrazo", atraso: "atraso", dentro_prazo: "dentroPrazo", atrasada: "atrasada" }[a.statusBucket];
+    byKey[key][field]++;
     byKey[key].total++;
   });
   return Object.values(byKey).sort((a, b) => b.total - a.total);
@@ -4454,7 +4462,8 @@ function renderPlanoAcao() {
   const all = getAllPlanoActions();
   const noPrazo = all.filter(a => a.statusBucket === "no_prazo").length;
   const atraso = all.filter(a => a.statusBucket === "atraso").length;
-  const pendente = all.filter(a => a.statusBucket === "pendente").length;
+  const dentroPrazo = all.filter(a => a.statusBucket === "dentro_prazo").length;
+  const atrasadas = all.filter(a => a.statusBucket === "atrasada").length;
   const total = all.length;
   const pct = (v) => total > 0 ? fmtPct((v / total) * 100) : fmtPct(0);
 
@@ -4475,9 +4484,14 @@ function renderPlanoAcao() {
       <div class="kpi-sub">${pct(atraso)} do total</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Pendentes</div>
-      <div class="kpi-value">${pendente}</div>
-      <div class="kpi-sub">${pct(pendente)} do total</div>
+      <div class="kpi-label">Dentro do prazo</div>
+      <div class="kpi-value">${dentroPrazo}</div>
+      <div class="kpi-sub">em aberto, ${pct(dentroPrazo)} do total</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Atrasadas</div>
+      <div class="kpi-value"${atrasadas > 0 ? ` style="color:${COLOR_SALDO_NEG}"` : ""}>${atrasadas}</div>
+      <div class="kpi-sub">em aberto, prazo vencido · ${pct(atrasadas)} do total</div>
     </div>
   `;
 
