@@ -284,6 +284,13 @@
   .rca-actions-table th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.02em;color:var(--muted3);font-weight:700;padding:0 8px 6px;border-bottom:1px solid var(--line);}
   .rca-actions-table td{padding:6px 8px;vertical-align:top;border-bottom:1px solid var(--line2);}
   .rca-actions-table input, .rca-actions-table select{width:100%;font-family:'Inter',sans-serif;font-size:12.5px;border:1px solid var(--panel-border);border-radius:6px;padding:6px 8px;background:#fff;}
+  .rca-actions-table .ac-situacao{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text);padding-top:11px;}
+  .plano-status-sub{font-family:'Inter',sans-serif;font-size:11px;color:var(--muted3);font-weight:400;white-space:nowrap;}
+  .plano-update-box{background:#F4F8F4;border:1px solid var(--panel-border);border-left:3px solid var(--realizado);border-radius:10px;padding:14px 16px;margin:2px 0 6px;text-align:left;white-space:normal;}
+  .plano-update-context{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text);margin-bottom:12px;line-height:1.5;}
+  .plano-update-note{display:block;font-size:11px;color:var(--muted3);margin-top:3px;}
+  .plano-update-grid{margin-bottom:12px;}
+  .plano-update-actions{display:flex;gap:10px;}
   .rca-actions-table .rm-action{background:none;border:none;color:var(--saldo-neg);cursor:pointer;font-size:16px;line-height:1;padding:4px;}
 
   .rca-summary-card{background:#fff;border:1px solid var(--panel-border);border-radius:12px;padding:16px 18px;margin-bottom:14px;}
@@ -805,7 +812,7 @@
 
             <div class="rca-section-label">Plano de ação</div>
             <table class="rca-actions-table" id="rcaActionsTable">
-              <thead><tr><th style="width:30%;">Ação</th><th style="width:18%;">Responsável</th><th style="width:14%;">Prazo</th><th style="width:13%;">Status</th><th style="width:15%;">Concluída em</th><th></th></tr></thead>
+              <thead><tr><th style="width:30%;">Ação</th><th style="width:18%;">Responsável</th><th style="width:14%;">Prazo</th><th colspan="2" style="width:28%;">Situação <span style="text-transform:none;font-weight:400;">(atualizada na aba Plano de Ação)</span></th><th></th></tr></thead>
               <tbody id="rcaActionsBody"></tbody>
             </table>
             <button type="button" class="btn ghost" id="btnAddAction">+ Adicionar ação</button>
@@ -3213,35 +3220,30 @@ function collectOrigemCausaRaiz() {
   return Array.from(document.querySelectorAll(".rca-origem-cb:checked")).map(cb => cb.value);
 }
 
-function renderRcaActionsRows(acoes) {
+// rca: análise já salva (para achar o acompanhamento feito no Plano de Ação); null numa análise nova
+function renderRcaActionsRows(rca) {
   const tbody = document.getElementById("rcaActionsBody");
   tbody.innerHTML = "";
-  (acoes && acoes.length ? acoes : [{ descricao: "", responsavel: "", prazo: "", status: "pendente", dataConclusao: "" }]).forEach(a => addRcaActionRow(a));
+  const acoes = rca && rca.acoes && rca.acoes.length ? rca.acoes.map((a, idx) => effectiveRcaAction(rca, a, idx)) : [];
+  (acoes.length ? acoes : [{ descricao: "", responsavel: "", prazo: "", status: "pendente", dataConclusao: "" }]).forEach(a => addRcaActionRow(a));
 }
 
 function addRcaActionRow(a) {
   a = a || { descricao: "", responsavel: "", prazo: "", status: "pendente", dataConclusao: "" };
   const tbody = document.getElementById("rcaActionsBody");
   const tr = document.createElement("tr");
+  tr.dataset.actionId = a.id || "";
+  tr.dataset.status = a.status || "pendente";
+  tr.dataset.conclusao = a.dataConclusao || "";
+  // status e data de realização não se editam aqui: o acompanhamento é feito só na aba Plano de Ação
+  const situacao = `<span style="color:${statusColor(a.status)};font-weight:600;">${statusLabel(a.status)}</span>${a.status === "concluida" && a.dataConclusao ? ` em ${dBR(dParseIso(a.dataConclusao))}` : ""}${a.reprogramado ? ` · reprogramada para ${dBR(dParseIso(a.reprogramado))}` : ""}`;
   tr.innerHTML = `
     <td><input type="text" class="ac-descricao" placeholder="O que precisa ser feito" value="${esc(a.descricao || "")}"></td>
     <td><input type="text" class="ac-responsavel" placeholder="Responsável" value="${esc(a.responsavel || "")}"></td>
     <td><input type="date" class="ac-prazo" value="${esc(a.prazo || "")}"></td>
-    <td>
-      <select class="ac-status">
-        <option value="pendente"${a.status==="pendente"?" selected":""}>Pendente</option>
-        <option value="em andamento"${a.status==="em andamento"?" selected":""}>Em andamento</option>
-        <option value="concluida"${a.status==="concluida"?" selected":""}>Concluída</option>
-      </select>
-    </td>
-    <td><input type="date" class="ac-conclusao" value="${esc(a.dataConclusao || "")}"></td>
+    <td colspan="2" class="ac-situacao">${situacao}</td>
     <td><button type="button" class="rm-action" title="Remover ação">×</button></td>
   `;
-  const statusSel = tr.querySelector(".ac-status");
-  const conclusaoInp = tr.querySelector(".ac-conclusao");
-  statusSel.addEventListener("change", () => {
-    if (statusSel.value === "concluida" && !conclusaoInp.value) conclusaoInp.value = dIso(dOnly(new Date()));
-  });
   tr.querySelector(".rm-action").addEventListener("click", () => {
     if (document.getElementById("rcaActionsBody").children.length > 1) tr.remove();
   });
@@ -3250,11 +3252,12 @@ function addRcaActionRow(a) {
 
 function collectRcaActions() {
   return Array.from(document.getElementById("rcaActionsBody").children).map(tr => ({
+    id: tr.dataset.actionId || `act-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
     descricao: tr.querySelector(".ac-descricao").value.trim(),
     responsavel: tr.querySelector(".ac-responsavel").value.trim(),
     prazo: tr.querySelector(".ac-prazo").value,
-    status: tr.querySelector(".ac-status").value,
-    dataConclusao: tr.querySelector(".ac-conclusao").value,
+    status: tr.dataset.status || "pendente",
+    dataConclusao: tr.dataset.conclusao || "",
   })).filter(a => a.descricao || a.responsavel);
 }
 
@@ -3302,7 +3305,7 @@ function openRcaForm(dateIso) {
   }
   document.getElementById("rcaOrigemOutrosQual").value = existing ? (existing.origemOutrosQual || "") : "";
 
-  renderRcaActionsRows(existing ? existing.acoes : null);
+  renderRcaActionsRows(existing);
   document.querySelectorAll("#rcaPendingList .rca-pending-item").forEach(el => el.classList.toggle("selected", el.dataset.dateIso === dateIso));
   document.getElementById("rcaFormPanel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -3340,6 +3343,24 @@ function statusLabel(status) {
   return "Pendente";
 }
 
+/* Ações vindas de uma análise: o acompanhamento (status, data de realização, reprogramação, observação) é
+   feito só na aba Plano de Ação e gravado em registros próprios ("rca_update"), dentro da mesma chave do plano.
+   O registro da análise em si nunca é alterado por esse acompanhamento. */
+const PLANO_UPDATE_KIND = "rca_update";
+function rcaActionId(rca, a, idx) { return a.id || `rca-${rca.dateIso}-${idx}`; }
+function planoUpdateFor(actionId) { return manualActions.find(x => x.kind === PLANO_UPDATE_KIND && x.id === actionId) || null; }
+function effectiveRcaAction(rca, a, idx) {
+  const u = planoUpdateFor(rcaActionId(rca, a, idx));
+  return {
+    ...a,
+    id: rcaActionId(rca, a, idx),
+    status: u ? u.status : (a.status || "pendente"),
+    dataConclusao: u ? (u.dataConclusao || "") : (a.dataConclusao || ""),
+    reprogramado: u ? (u.reprogramado || "") : "",
+    observacoes: u ? (u.observacoes || "") : "",
+  };
+}
+
 function renderRcaCompletedList() {
   const panel = document.getElementById("rcaCompletedPanel");
   const list = document.getElementById("rcaCompletedList");
@@ -3351,7 +3372,7 @@ function renderRcaCompletedList() {
   entries.forEach(rca => {
     const card = document.createElement("div");
     card.className = "rca-summary-card";
-    const actionsHtml = (rca.acoes || []).map(a => `
+    const actionsHtml = (rca.acoes || []).map((a0, idx) => effectiveRcaAction(rca, a0, idx)).map(a => `
       <div class="rca-action-row">
         <div class="ar-status" style="background:${statusColor(a.status)}"></div>
         <div class="ar-text">${esc(a.descricao)}<div class="ar-owner">${esc(a.responsavel || "sem responsável definido")}${a.prazo ? " · prazo " + dBR(dParseIso(a.prazo)) : ""} · ${statusLabel(a.status)}${a.dataConclusao ? " · concluída em " + dBR(dParseIso(a.dataConclusao)) : ""}</div></div>
@@ -3571,7 +3592,7 @@ function buildRcaPrintHtml(rca) {
   }).join("");
 
   const acoesRows = (rca.acoes && rca.acoes.length)
-    ? rca.acoes.map(a => `<tr><td>${esc(a.descricao || "—")}</td><td>${esc(a.responsavel || "—")}</td><td>${a.prazo ? dBR(dParseIso(a.prazo)) : "—"}</td><td>${statusLabel(a.status)}</td></tr>`).join("")
+    ? rca.acoes.map((a0, idx) => effectiveRcaAction(rca, a0, idx)).map(a => `<tr><td>${esc(a.descricao || "—")}</td><td>${esc(a.responsavel || "—")}</td><td>${a.prazo ? dBR(dParseIso(a.prazo)) : "—"}${a.reprogramado ? ` → ${dBR(dParseIso(a.reprogramado))}` : ""}</td><td>${statusLabel(a.status)}${a.status === "concluida" && a.dataConclusao ? ` em ${dBR(dParseIso(a.dataConclusao))}` : ""}</td></tr>`).join("")
     : `<tr><td colspan="4">—</td></tr>`;
 
   return `
@@ -4350,21 +4371,22 @@ function classifyPlanoStatus(a) {
 function getAllPlanoActions() {
   const list = [];
   Object.values(rcaStore).forEach(rca => {
-    (rca.acoes || []).forEach((a, idx) => {
-      if (!a.descricao && !a.responsavel) return;
+    (rca.acoes || []).forEach((a0, idx) => {
+      if (!a0.descricao && !a0.responsavel) return;
+      const a = effectiveRcaAction(rca, a0, idx); // status / realiza\u00e7\u00e3o / reprograma\u00e7\u00e3o v\u00eam do acompanhamento feito no Plano
       const item = {
-        id: `rca-${rca.dateIso}-${idx}`,
+        id: a.id,
         descricao: a.descricao, origem: "An\u00e1lise de Falha", tag: rca.equipamentoTag || "", ativo: "", componente: "",
         anomalia: "", criticidade: "", comoResolver: "", ordemServico: "", especialidade: "",
         responsavel: a.responsavel, dataCriacao: rca.createdAt ? dIso(dOnly(new Date(rca.createdAt))) : "",
-        prazo: a.prazo, reprogramado: "", status: a.status, dataConclusao: a.dataConclusao || "",
-        ganho: "", observacoes: "", source: "rca", sourceRef: rca.dateIso, sourceLabel: rca.numeroAF || dBR(dParseIso(rca.dateIso)),
+        prazo: a.prazo, reprogramado: a.reprogramado, status: a.status, dataConclusao: a.dataConclusao,
+        ganho: "", observacoes: a.observacoes, source: "rca", sourceRef: rca.dateIso, sourceLabel: rca.numeroAF || dBR(dParseIso(rca.dateIso)),
       };
       item.statusBucket = classifyPlanoStatus(item);
       list.push(item);
     });
   });
-  manualActions.forEach(a => {
+  manualActions.filter(a => a.kind !== PLANO_UPDATE_KIND).forEach(a => {
     const item = { ...a, source: "manual", sourceRef: a.id, sourceLabel: a.origem || "Manual" };
     item.statusBucket = classifyPlanoStatus(item);
     list.push(item);
@@ -4516,18 +4538,23 @@ function renderPlanoTable(all) {
   filtered.forEach(a => {
     const tr = document.createElement("tr");
     const extra = [a.tag, a.ativo, a.componente, a.anomalia, a.criticidade ? `Criticidade ${a.criticidade}` : "", a.comoResolver, a.ganho ? `Ganho: ${a.ganho}` : "", a.observacoes].filter(Boolean).join(" \u00b7 ");
+    const updateBtn = `<button type="button" class="btn primary small plano-update-btn" data-id="${esc(a.id)}">Atualizar</button>`;
     const actionsCell = a.source === "rca"
-      ? `<button type="button" class="btn ghost small plano-view-rca" data-ref="${esc(a.sourceRef)}">Ver an\u00e1lise</button>`
-      : `<button type="button" class="btn ghost small plano-edit-manual" data-id="${esc(a.id)}">Editar</button> <button type="button" class="btn ghost small plano-delete-manual" style="color:var(--saldo-neg);" data-id="${esc(a.id)}">Excluir</button>`;
+      ? `${updateBtn} <button type="button" class="btn ghost small plano-view-rca" data-ref="${esc(a.sourceRef)}">Ver an\u00e1lise</button>`
+      : `${updateBtn} <button type="button" class="btn ghost small plano-edit-manual" data-id="${esc(a.id)}">Editar</button> <button type="button" class="btn ghost small plano-delete-manual" style="color:var(--saldo-neg);" data-id="${esc(a.id)}">Excluir</button>`;
+    const statusDetail = a.statusBucket === "no_prazo" || a.statusBucket === "atraso"
+      ? (a.dataConclusao ? ` <span class="plano-status-sub">em ${dBR(dParseIso(a.dataConclusao))}</span>` : "")
+      : (a.status === "em andamento" ? ` <span class="plano-status-sub">em andamento</span>` : "");
     tr.innerHTML = `
       <td style="text-align:left;" title="${esc(extra)}">${esc(a.descricao || "\u2014")}</td>
       <td style="text-align:left;">${esc(a.origem || "\u2014")}${a.source === "rca" ? ` <span class="tag">${esc(a.sourceLabel)}</span>` : ""}</td>
       <td style="text-align:left;">${esc(a.responsavel || "\u2014")}</td>
       <td style="text-align:left;">${a.prazo ? dBR(dParseIso(a.prazo)) : "\u2014"}${a.reprogramado ? ` \u2192 ${dBR(dParseIso(a.reprogramado))}` : ""}</td>
-      <td style="text-align:left;"><span style="color:${statusBucketColor(a.statusBucket)};font-weight:600;">${statusBucketLabel(a.statusBucket)}</span></td>
+      <td style="text-align:left;"><span style="color:${statusBucketColor(a.statusBucket)};font-weight:600;">${statusBucketLabel(a.statusBucket)}</span>${statusDetail}</td>
       <td style="text-align:right;white-space:nowrap;">${actionsCell}</td>
     `;
     tbody.appendChild(tr);
+    tr.querySelector(".plano-update-btn").addEventListener("click", () => togglePlanoUpdateRow(tr, a));
   });
   tbody.querySelectorAll(".plano-view-rca").forEach(btn => btn.addEventListener("click", () => {
     switchApp("analise");
@@ -4535,6 +4562,86 @@ function renderPlanoTable(all) {
   }));
   tbody.querySelectorAll(".plano-edit-manual").forEach(btn => btn.addEventListener("click", () => openPlanoManualForEdit(btn.dataset.id)));
   tbody.querySelectorAll(".plano-delete-manual").forEach(btn => btn.addEventListener("click", () => deletePlanoManual(btn.dataset.id)));
+}
+
+/* ---- atualização de uma ação direto na tabela (status, realização, reprogramação, observação) ---- */
+function togglePlanoUpdateRow(tr, a) {
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains("plano-update-row")) { next.remove(); return; }
+  document.querySelectorAll("#planoTableBody .plano-update-row").forEach(r => r.remove()); // um por vez
+  const isRca = a.source === "rca";
+  const row = document.createElement("tr");
+  row.className = "plano-update-row";
+  const opt = (v, label) => `<option value="${v}"${a.status === v ? " selected" : ""}>${label}</option>`;
+  row.innerHTML = `
+    <td colspan="6">
+      <div class="plano-update-box">
+        <div class="plano-update-context">
+          <b>${esc(a.descricao || "—")}</b> · ${esc(a.responsavel || "sem responsável")} · prazo original ${a.prazo ? dBR(dParseIso(a.prazo)) : "—"}
+          ${isRca ? ` · <span class="tag">${esc(a.sourceLabel)}</span><span class="plano-update-note">Descrição, responsável e prazo original ficam na análise de falha e não são alterados aqui.</span>` : ""}
+        </div>
+        <div class="rca-form-grid plano-update-grid">
+          <div class="rca-field">
+            <label>Status</label>
+            <select class="pu-status">${opt("pendente", "Pendente")}${opt("em andamento", "Em andamento")}${opt("concluida", "Concluída")}</select>
+          </div>
+          <div class="rca-field pu-conclusao-field" style="display:${a.status === "concluida" ? "" : "none"};">
+            <label>Realizada em</label>
+            <input type="date" class="pu-conclusao" value="${esc(a.dataConclusao || "")}">
+          </div>
+          <div class="rca-field">
+            <label>Reprogramado para (se houver)</label>
+            <input type="date" class="pu-reprog" value="${esc(a.reprogramado || "")}">
+          </div>
+          <div class="rca-field full">
+            <label>Observação</label>
+            <input type="text" class="pu-obs" placeholder="Opcional" value="${esc(a.observacoes || "")}">
+          </div>
+        </div>
+        <div class="plano-update-actions">
+          <button type="button" class="btn primary small pu-save">Salvar atualização</button>
+          <button type="button" class="btn ghost small pu-cancel">Cancelar</button>
+        </div>
+      </div>
+    </td>`;
+  tr.after(row);
+  const statusSel = row.querySelector(".pu-status");
+  const conclusaoField = row.querySelector(".pu-conclusao-field");
+  const conclusaoInp = row.querySelector(".pu-conclusao");
+  statusSel.addEventListener("change", () => {
+    const done = statusSel.value === "concluida";
+    conclusaoField.style.display = done ? "" : "none";
+    if (done && !conclusaoInp.value) conclusaoInp.value = dIso(dOnly(new Date()));
+  });
+  row.querySelector(".pu-cancel").addEventListener("click", () => row.remove());
+  row.querySelector(".pu-save").addEventListener("click", () => {
+    const status = statusSel.value;
+    const dataConclusao = status === "concluida" ? conclusaoInp.value : "";
+    if (status === "concluida" && !dataConclusao) { alert("Informe a data em que a ação foi realizada."); conclusaoInp.focus(); return; }
+    if (dataConclusao && dataConclusao > dIso(dOnly(new Date())) && !confirm("A data de realização está no futuro. Deseja salvar mesmo assim?")) return;
+    savePlanoUpdate(a, {
+      status,
+      dataConclusao,
+      reprogramado: row.querySelector(".pu-reprog").value,
+      observacoes: row.querySelector(".pu-obs").value.trim(),
+    });
+  });
+  row.querySelector(".pu-status").focus();
+}
+
+function savePlanoUpdate(a, fields) {
+  if (a.source === "rca") {
+    const upd = { kind: PLANO_UPDATE_KIND, id: a.id, ...fields, updatedAt: Date.now() };
+    const idx = manualActions.findIndex(x => x.kind === PLANO_UPDATE_KIND && x.id === a.id);
+    if (idx >= 0) manualActions[idx] = upd; else manualActions.push(upd);
+  } else {
+    const idx = manualActions.findIndex(x => x.id === a.id && x.kind !== PLANO_UPDATE_KIND);
+    if (idx < 0) return;
+    manualActions[idx] = { ...manualActions[idx], ...fields };
+  }
+  saveManualActions();
+  renderPlanoAcao();
+  if (a.source === "rca") renderAnaliseFalhas(); // cartões e situação das ações nas análises acompanham o Plano
 }
 
 document.querySelectorAll("#planoStatusFilter button").forEach(b => b.addEventListener("click", () => {
