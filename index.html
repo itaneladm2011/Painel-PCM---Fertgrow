@@ -654,6 +654,9 @@
             <label style="font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;">Ver só um dia</label>
             <input type="date" id="dispTableDayFilterInput" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:#FFFFFF;border:1px solid var(--panel-border);border-radius:7px;padding:6px 9px;">
             <button class="btn ghost" id="btnClearDispTableDay" type="button" style="display:none;">Limpar</button>
+            <label style="display:flex;align-items:center;gap:6px;margin-left:8px;font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text);cursor:pointer;">
+              <input type="checkbox" id="dispTableTriggerOnly"> Só dias acima do gatilho (≥ 3h)
+            </label>
           </div>
           <div class="table-scroll">
             <table>
@@ -2286,6 +2289,7 @@ let dispData = null;
 let dispFilterStart = null;
 let dispFilterEnd = null;
 let dispTableDayFilter = null;
+let dispTableTriggerOnly = false;
 let dispLastRangeStats = null;
 
 function dOnly(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
@@ -2853,16 +2857,23 @@ function renderDispFailuresTable() {
   if (!rangeStats) { tbody.innerHTML = ""; return; }
   tbody.innerHTML = "";
   let records = rangeStats.records;
+  if (dispTableTriggerOnly) {
+    // mesma regra do card "Falhas acima do gatilho": dia cuja soma de horas de falha atinge o gatilho
+    const hoursByDay = {};
+    rangeStats.records.forEach(r => { const k = dIso(r.date); hoursByDay[k] = (hoursByDay[k] || 0) + r.hours; });
+    records = records.filter(r => hoursByDay[dIso(r.date)] >= RCA_TRIGGER);
+  }
   if (dispTableDayFilter) {
     const day = dParseIso(dispTableDayFilter);
     records = records.filter(r => +dOnly(r.date) === +day);
   }
   const sorted = records.slice().sort((a,b)=> (+b.date - +a.date) || (b.hours - a.hours));
-  document.getElementById("dispTableTag").textContent = dispTableDayFilter
-    ? `${sorted.length} registro(s) em ${dBR(dParseIso(dispTableDayFilter))}`
-    : `${rangeStats.count} registro(s)`;
+  document.getElementById("dispTableTag").textContent =
+    `${sorted.length} registro(s)` +
+    (dispTableDayFilter ? ` em ${dBR(dParseIso(dispTableDayFilter))}` : "") +
+    (dispTableTriggerOnly ? " · acima do gatilho" : "");
   if (sorted.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted3);">Nenhuma falha registrada no período selecionado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted3);">${dispTableTriggerOnly ? "Nenhuma falha acima do gatilho no período selecionado." : "Nenhuma falha registrada no período selecionado."}</td></tr>`;
     return;
   }
   sorted.forEach((r, idx) => {
@@ -3489,6 +3500,10 @@ document.getElementById("dispDateEnd").addEventListener("change", (e) => {
 document.getElementById("dispTableDayFilterInput").addEventListener("change", (e) => {
   dispTableDayFilter = e.target.value || null;
   document.getElementById("btnClearDispTableDay").style.display = dispTableDayFilter ? "inline-block" : "none";
+  renderDispFailuresTable();
+});
+document.getElementById("dispTableTriggerOnly").addEventListener("change", (e) => {
+  dispTableTriggerOnly = e.target.checked;
   renderDispFailuresTable();
 });
 document.getElementById("btnClearDispTableDay").addEventListener("click", () => {
