@@ -1921,11 +1921,17 @@ function loadDispFromStorage() {
     const metaRaw = localStorage.getItem(DISP_STORAGE_META_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    parsed.records = parsed.records.map(r => ({ ...r, date: dParseIso(r.date) }));
+    parsed.records = parsed.records.map(r => ({ ...r, date: parseStoredDate(r.date) }));
     return { data: parsed, meta: metaRaw ? JSON.parse(metaRaw) : null };
   } catch (e) {
     return null;
   }
+}
+// aceita "AAAA-MM-DD" e também data-hora ISO ("...T03:00:00.000Z"), que uma versão anterior gravou por engano no cache local
+function parseStoredDate(s) {
+  if (s instanceof Date) return dOnly(s);
+  const str = String(s);
+  return str.length > 10 ? dOnly(new Date(str)) : dParseIso(str);
 }
 function clearDispStorage() {
   localStorage.removeItem(DISP_STORAGE_KEY);
@@ -4919,8 +4925,8 @@ async function syncFromCloud() {
         document.getElementById("btnReset").style.display = "inline-block";
         render();
       } else if (row.key === DISP_STORAGE_KEY) {
-        const parsed = row.data;
-        parsed.records = parsed.records.map(r => ({ ...r, date: dParseIso(r.date) }));
+        // não alterar row.data: ele é o que vai pro cache local, e as datas têm que ficar "AAAA-MM-DD" lá
+        const parsed = { ...row.data, records: row.data.records.map(r => ({ ...r, date: parseStoredDate(r.date) })) };
         dispData = parsed;
         localStorage.setItem(DISP_STORAGE_KEY, JSON.stringify(row.data));
         localStorage.setItem(DISP_STORAGE_META_KEY, JSON.stringify({ fileName: row.file_name, updatedAt: cloudTs }));
