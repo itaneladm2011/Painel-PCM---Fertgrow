@@ -268,6 +268,14 @@
     border:1px solid var(--panel-border);border-radius:8px;padding:9px 11px;background:#fff;resize:vertical;}
   .rca-field textarea{min-height:70px;}
   .rca-context-box{background:#F7F6F2;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:var(--muted2);}
+  .rca-dispensa-box{margin-bottom:16px;}
+  .rca-dispensa-label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin:12px 0 5px;}
+  .rca-dispensa-box textarea{width:100%;box-sizing:border-box;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:#FFFFFF;border:1px solid var(--panel-border);border-radius:8px;padding:9px 11px;resize:vertical;}
+  .rca-dispensa-box textarea:focus{outline:none;border-color:var(--realizado);}
+  .rca-dispensa-hint{font-size:11.5px;color:var(--muted3);margin-top:5px;}
+  .rca-dispensa-hint.ok{color:var(--saldo-pos);}
+  .rca-dispensa-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
   .rca-context-box b{color:var(--text-strong);}
 
   .rca-actions-table{width:100%;border-collapse:collapse;margin-bottom:10px;}
@@ -699,7 +707,7 @@
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.3" y1="15.3" x2="21" y2="21"/><line x1="8" y1="10.5" x2="13" y2="10.5"/><line x1="10.5" y1="8" x2="10.5" y2="13"/></svg>
         </div>
         <div class="panel-title" style="justify-content:center;">Análise de Falhas</div>
-        <p class="empty-text">Carregue a planilha de disponibilidade (no painel de Indicadores de Disponibilidade) para identificar os dias que atingiram o gatilho de 3h e exigem análise de causa raiz.</p>
+        <p class="empty-text">Assim que os dados de disponibilidade chegarem da Evocon, os dias que atingirem o gatilho de 3h aparecem aqui para análise de causa raiz.</p>
       </div>
 
       <div id="rcaDashboard" style="display:none;">
@@ -712,6 +720,18 @@
         <div class="panel" id="rcaFormPanel" style="display:none;">
           <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>Formulário de análise de causa raiz <span class="tag" id="rcaFormTag"></span></div>
           <div class="rca-context-box" id="rcaContextBox"></div>
+          <div class="rca-dispensa-box" id="rcaDispensaBox">
+            <button type="button" class="btn ghost small" id="btnToggleDispensa">Não há necessidade de análise neste dia</button>
+            <div id="rcaDispensaFields" style="display:none;">
+              <label class="rca-dispensa-label" for="rcaDispensaJustificativa">Justificativa (obrigatória)</label>
+              <textarea id="rcaDispensaJustificativa" rows="3" placeholder="Ex.: soma de várias paradas curtas e independentes, sem causa comum nem falha isolada relevante."></textarea>
+              <div class="rca-dispensa-hint" id="rcaDispensaHint">Descreva o motivo (mínimo de 10 caracteres) para liberar o botão.</div>
+              <div class="rca-dispensa-actions">
+                <button type="button" class="btn primary small" id="btnConfirmDispensa" disabled>Dispensar análise</button>
+                <button type="button" class="btn ghost small" id="btnCancelDispensa">Cancelar</button>
+              </div>
+            </div>
+          </div>
           <form id="rcaForm">
 
             <div class="rca-section-label">Informações gerais</div>
@@ -797,6 +817,11 @@
         <div class="panel" id="rcaCompletedPanel" style="display:none;">
           <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12 11 15 16 9"/></svg>Análises concluídas <span class="tag" id="rcaCompletedTag"></span></div>
           <div id="rcaCompletedList"></div>
+        </div>
+
+        <div class="panel" id="rcaDismissedPanel" style="display:none;">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Análises dispensadas <span class="tag" id="rcaDismissedTag"></span></div>
+          <div id="rcaDismissedList"></div>
         </div>
 
       </div>
@@ -3222,11 +3247,14 @@ function openRcaForm(dateIso) {
   rcaCurrentDateIso = dateIso;
   document.getElementById("rcaFormPanel").style.display = "";
   document.getElementById("rcaContextBox").innerHTML = rcaContextHtml(day);
-  const existing = rcaStore[dateIso];
-  document.getElementById("rcaFormTag").textContent = existing ? "editando análise salva" : "nova análise";
+  const stored = rcaStore[dateIso];
+  const existing = stored && !stored.dispensada ? stored : null; // registro de dispensa não conta como análise salva
+  document.getElementById("rcaFormTag").textContent = existing ? "editando análise salva" : (stored ? "refazendo análise dispensada" : "nova análise");
+  document.getElementById("rcaDispensaBox").style.display = stored ? "none" : "";
+  resetRcaDispensaBox();
 
   const equipSuggestion = Array.from(new Set(day.records.map(r => r.falha || r.descricao).filter(Boolean))).join(", ");
-  document.getElementById("rcaNumeroAF").value = existing ? (existing.numeroAF || "") : `AF-${String(Object.keys(rcaStore).length + 1).padStart(3, "0")}`;
+  document.getElementById("rcaNumeroAF").value = existing ? (existing.numeroAF || "") : `AF-${String(Object.values(rcaStore).filter(r => !r.dispensada).length + 1).padStart(3, "0")}`;
   document.getElementById("rcaResponsavel").value = existing ? existing.responsavelAnalise : "";
   document.getElementById("rcaEquipamento").value = existing ? (existing.equipamentoTag || "") : equipSuggestion;
   document.getElementById("rcaTempoParada").value = `${dBR(day.date)} — ${fmtHM(day.hours)}`;
@@ -3297,7 +3325,7 @@ function statusLabel(status) {
 function renderRcaCompletedList() {
   const panel = document.getElementById("rcaCompletedPanel");
   const list = document.getElementById("rcaCompletedList");
-  const entries = Object.values(rcaStore).sort((a, b) => b.updatedAt - a.updatedAt);
+  const entries = Object.values(rcaStore).filter(r => !r.dispensada).sort((a, b) => b.updatedAt - a.updatedAt);
   if (entries.length === 0) { panel.style.display = "none"; return; }
   panel.style.display = "";
   document.getElementById("rcaCompletedTag").textContent = `${entries.length} análise(s)`;
@@ -3379,6 +3407,111 @@ function renderRcaCompletedList() {
     card.querySelector(".rca-print-btn").addEventListener("click", () => printRcaAnalysis(rca.dateIso));
     list.appendChild(card);
   });
+}
+
+/* ---- dispensa de análise (não há necessidade de análise; exige justificativa) ---- */
+const RCA_DISPENSA_MIN_CHARS = 10;
+
+function resetRcaDispensaBox() {
+  document.getElementById("rcaDispensaFields").style.display = "none";
+  document.getElementById("btnToggleDispensa").style.display = "";
+  document.getElementById("rcaDispensaJustificativa").value = "";
+  updateRcaDispensaState();
+}
+
+function updateRcaDispensaState() {
+  const len = document.getElementById("rcaDispensaJustificativa").value.trim().length;
+  const ok = len >= RCA_DISPENSA_MIN_CHARS;
+  document.getElementById("btnConfirmDispensa").disabled = !ok;
+  const hint = document.getElementById("rcaDispensaHint");
+  hint.classList.toggle("ok", ok);
+  hint.textContent = ok ? "Justificativa preenchida." : `Descreva o motivo (mínimo de ${RCA_DISPENSA_MIN_CHARS} caracteres) para liberar o botão.`;
+}
+
+document.getElementById("btnToggleDispensa").addEventListener("click", () => {
+  document.getElementById("rcaDispensaFields").style.display = "";
+  document.getElementById("btnToggleDispensa").style.display = "none";
+  document.getElementById("rcaDispensaJustificativa").focus();
+});
+document.getElementById("btnCancelDispensa").addEventListener("click", resetRcaDispensaBox);
+document.getElementById("rcaDispensaJustificativa").addEventListener("input", updateRcaDispensaState);
+document.getElementById("btnConfirmDispensa").addEventListener("click", async () => {
+  const dateIso = rcaCurrentDateIso;
+  const justificativa = document.getElementById("rcaDispensaJustificativa").value.trim();
+  if (!dateIso || justificativa.length < RCA_DISPENSA_MIN_CHARS) return; // sem justificativa não fecha
+  const day = getTriggeredDays().find(d => d.dateIso === dateIso);
+  if (!day) return;
+  if (!confirm(`Confirma que NÃO há necessidade de análise de causa raiz em ${dBR(day.date)}?\n\nO alerta de pendência será removido e a justificativa ficará registrada.`)) return;
+  let por = null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    por = data && data.session && data.session.user ? data.session.user.email : null;
+  } catch (e) {}
+  const now = Date.now();
+  rcaStore[dateIso] = {
+    dateIso,
+    dispensada: true,
+    justificativaDispensa: justificativa,
+    dispensadaPor: por,
+    totalHours: day.hours,
+    failureCount: day.count,
+    createdAt: now,
+    updatedAt: now,
+  };
+  saveRcaStore();
+  document.getElementById("rcaFormPanel").style.display = "none";
+  rcaCurrentDateIso = null;
+  renderAnaliseFalhas();
+  renderRcaAlertInDisp();
+  updateNavPlanoBadge();
+});
+
+function renderRcaDismissedList() {
+  const panel = document.getElementById("rcaDismissedPanel");
+  const list = document.getElementById("rcaDismissedList");
+  const entries = Object.values(rcaStore).filter(r => r.dispensada).sort((a, b) => b.updatedAt - a.updatedAt);
+  if (entries.length === 0) { panel.style.display = "none"; return; }
+  panel.style.display = "";
+  document.getElementById("rcaDismissedTag").textContent = `${entries.length} dispensada(s)`;
+  list.innerHTML = "";
+  entries.forEach(rca => {
+    const card = document.createElement("div");
+    card.className = "rca-summary-card";
+    card.innerHTML = `
+      <div class="rca-summary-head">
+        <div>
+          <div class="rca-summary-title">${dBR(dParseIso(rca.dateIso))} — ${fmtHM(rca.totalHours)} de falha (${rca.failureCount} registro(s)) · análise dispensada</div>
+          <div class="rca-summary-sub">dispensada em ${fmtDateTime(rca.updatedAt)}${rca.dispensadaPor ? " por " + esc(rca.dispensadaPor) : ""}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex:0 0 auto;">
+          <button type="button" class="btn ghost small rca-redo-btn">Fazer análise mesmo assim</button>
+          <button type="button" class="btn ghost small rca-revert-btn" style="color:var(--saldo-neg);">Reverter dispensa</button>
+        </div>
+      </div>
+      <div>
+        <div class="rca-summary-block-label">Justificativa</div>
+        <div class="rca-summary-block-text">${esc(rca.justificativaDispensa || "—")}</div>
+      </div>
+    `;
+    card.querySelector(".rca-redo-btn").addEventListener("click", () => openRcaForm(rca.dateIso));
+    card.querySelector(".rca-revert-btn").addEventListener("click", () => revertRcaDispensa(rca.dateIso));
+    list.appendChild(card);
+  });
+}
+
+function revertRcaDispensa(dateIso) {
+  const rca = rcaStore[dateIso];
+  if (!rca || !rca.dispensada) return;
+  if (!confirm(`Reverter a dispensa de ${dBR(dParseIso(dateIso))}?\n\nO dia volta a aparecer como análise pendente no painel de Disponibilidade.`)) return;
+  delete rcaStore[dateIso];
+  saveRcaStore();
+  if (rcaCurrentDateIso === dateIso) {
+    document.getElementById("rcaFormPanel").style.display = "none";
+    rcaCurrentDateIso = null;
+  }
+  renderAnaliseFalhas();
+  renderRcaAlertInDisp();
+  updateNavPlanoBadge();
 }
 
 function deleteRcaAnalysis(dateIso) {
@@ -3496,6 +3629,7 @@ function renderAnaliseFalhas() {
   if (!hasData) { updateNavAnaliseBadge(); return; }
   renderRcaPendingList();
   renderRcaCompletedList();
+  renderRcaDismissedList();
   updateNavAnaliseBadge();
 }
 
