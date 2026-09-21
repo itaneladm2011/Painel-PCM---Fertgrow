@@ -1317,7 +1317,7 @@ function renderBarChart(items) {
   const wide = n > (M ? 6 : 8);
   const W = wide ? Math.max(M ? 380 : 640, marginL + marginR + n * perItemW) : (M ? 380 : 640);
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svg.style.width = wide ? `${W}px` : "100%";
+  svg.style.width = "100%"; svg.style.minWidth = wide ? `${W}px` : "";
   const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
   const groupW = plotW / n;
   const barW = Math.min(24, groupW * 0.32);
@@ -2407,6 +2407,15 @@ function computePlantStats(records, days, allPlants) {
   })).sort((a,b) => a.planta.localeCompare(b.planta, undefined, {numeric:true}));
 }
 
+// lista longa (ciclo inteiro): mantém os N maiores e junta o resto em uma linha "Outras", senão o gráfico fica gigante
+function capTopItems(list, maxItems) {
+  if (list.length <= maxItems) return list;
+  const head = list.slice(0, maxItems);
+  const rest = list.slice(maxItems);
+  head.push({ label: `Outras (${rest.length})`, equip: "Outras", planta: "—", hours: rest.reduce((s, a) => s + a.hours, 0), count: rest.reduce((s, a) => s + a.count, 0) });
+  return head;
+}
+
 function computeEquipmentStats(records) {
   const byEquip = {};
   records.forEach(r => {
@@ -2583,7 +2592,8 @@ function renderHoursBarChart(svgId, items, color) {
     const w = Math.max(0, xScale(a.hours));
     const label = el("text", { x: marginL - 8, y: gy + 3.5, "text-anchor": "end", "font-size": 9.5, fill: "#34302B", "font-weight": 600, "font-family": "'IBM Plex Mono',monospace" });
     const rawLabel = String(a.label);
-    label.textContent = rawLabel.length > 30 ? rawLabel.slice(0, 29) + "…" : rawLabel;
+    const maxChars = Math.floor((marginL - 10) / 5.8); // no celular a margem é menor: sem isso o nome saía cortado pela esquerda
+    label.textContent = rawLabel.length > maxChars ? rawLabel.slice(0, maxChars - 1) + "…" : rawLabel;
     svg.appendChild(label);
 
     const bar = el("rect", { x: marginL, y: gy - barH / 2, width: w, height: barH, rx: 4, fill: `url(#${gradId})`, filter: `url(#${shadowId})` });
@@ -2636,7 +2646,8 @@ function renderWeeklyLineChart(svgId, weeks, valueKey, color, fmtFn, highlightSt
     t.textContent = fixed100 ? `${Math.round(v)}%` : fmtHoursShort(v);
     svg.appendChild(t);
   }
-  const labelStep = Math.max(1, Math.ceil(n / 6));
+  // espaçamento em pixels (não em nº de semanas): com 52 semanas os rótulos "SEM XX" colidiam
+  const labelStep = Math.max(1, Math.ceil(52 / (n === 1 ? plotW : plotW/(n-1))));
   weeks.forEach((w,i)=>{
     const isStepShown = i % labelStep === 0;
     if (i !== n-1 && !isStepShown) return;
@@ -2658,17 +2669,14 @@ function renderWeeklyLineChart(svgId, weeks, valueKey, color, fmtFn, highlightSt
 
   const cys = weeks.map(w => yScale(w[valueKey]));
 
-  weeks.forEach((w,i)=>{
+  // posição de cada rótulo (âncora/deslocamento lateral/vertical), usada tanto pra decidir quais cabem quanto pra desenhar
+  const labelGeom = (i) => {
     const cy = cys[i];
-    const c = el("circle",{cx:xScale(i),cy:cy,r:2.8,fill:color});
-    svg.appendChild(c);
-
     const prevCy = i>0 ? cys[i-1] : null;
     const nextCy = i<n-1 ? cys[i+1] : null;
     const isPeak = (prevCy===null || cy<=prevCy) && (nextCy===null || cy<=nextCy);
     const isValley = !isPeak && (prevCy===null || cy>=prevCy) && (nextCy===null || cy>=nextCy);
     const sloped = !isPeak && !isValley;
-
     let anchor = i===0 ? "start" : (i===n-1 ? "end" : "middle");
     let lx = i===0 ? xScale(i)+6 : (i===n-1 ? xScale(i)-6 : xScale(i));
     if (sloped && i!==0 && i!==n-1) {
@@ -2687,10 +2695,39 @@ function renderWeeklyLineChart(svgId, weeks, valueKey, color, fmtFn, highlightSt
     }
     if (cy + dy < marginT + 7) dy = 15;
     if (cy + dy > H - 36) dy = -10;
+    return { anchor, lx, dy };
+  };
+
+  // muitas semanas (ciclo inteiro): rotula o último, o maior e o menor ponto e o que couber sem sobrepor
+  const labelShown = new Set();
+  {
+    const order = [n-1];
+    let iMax = 0, iMin = 0;
+    weeks.forEach((w,i)=>{ if (w[valueKey] > weeks[iMax][valueKey]) iMax = i; if (w[valueKey] < weeks[iMin][valueKey]) iMin = i; });
+    [iMax, iMin].forEach(i => { if (!order.includes(i)) order.push(i); });
+    for (let i=0;i<n;i++) if (!order.includes(i)) order.push(i);
+    const placed = [];
+    order.forEach(i => {
+      const lw = 4 + String(fmtFn(weeks[i][valueKey])).length * 4.6;
+      const g = labelGeom(i);
+      const left = g.anchor === "start" ? g.lx : (g.anchor === "end" ? g.lx - lw : g.lx - lw/2);
+      const right = left + lw;
+      if (left < 1 || right > W - 1) return; // não deixa o rótulo sair do gráfico
+      if (placed.every(p => right + 3 <= p.left || left >= p.right + 3)) { placed.push({left, right}); labelShown.add(i); }
+    });
+  }
+  const stepPxW = n === 1 ? plotW : plotW/(n-1);
+
+  weeks.forEach((w,i)=>{
+    const cy = cys[i];
+    const c = el("circle",{cx:xScale(i),cy:cy,r:stepPxW < 9 ? 1.8 : 2.8,fill:color});
+    svg.appendChild(c);
+
+    const { anchor, lx, dy } = labelGeom(i);
 
     const lbl = el("text",{x:lx,y:cy+dy,"text-anchor":anchor,"font-size":7.5,fill:color,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
     lbl.textContent = fmtFn(w[valueKey]);
-    svg.appendChild(lbl);
+    if (labelShown.has(i)) svg.appendChild(lbl);
     const hitRect = el("rect",{x:xScale(i)-(plotW/Math.max(n-1,1))/2,y:marginT,width:plotW/Math.max(n,1),height:plotH,fill:"transparent",style:"cursor:pointer"});
     hitRect.addEventListener("mousemove",(evt)=> showTooltip(evt, `SEM ${weekNumberSunday(w.start)} · ${dBR(w.start)} a ${dBR(w.end)}`, [
       {key:"Disponibilidade", val:w.disponibilidade, color:COLOR_REALIZADO, fmt:fmtPct},
@@ -2711,9 +2748,14 @@ function renderDispDailyChart(days) {
   svg.innerHTML = "";
   const M = isMobileView();
   const n0 = Math.max(days.length, 1);
-  const marginL = M ? 34 : 50, marginR = M ? 8 : 14, marginT = 14, marginB = M ? 30 : 40;
-  const perDayW = M ? 26 : 0;
+  const marginL = M ? 34 : 50, marginR = M ? 8 : 14, marginT = 14;
+  // densidade: com muitos dias (filtro "Tudo" / ciclo de 12 meses) troca os números de cada dia por rótulos de mês
+  // e só rotula os dias acima do gatilho, senão vira uma massa ilegível
+  const perDayW = M ? (n0 <= 31 ? 26 : n0 <= 100 ? 12 : 5) : 0;
   const W = M ? Math.max(360, marginL + marginR + n0 * perDayW) : 900;
+  const groupW0 = (W - marginL - marginR) / n0;
+  const mode = groupW0 >= 16 ? "normal" : (groupW0 >= 5.5 ? "compact" : "dense");
+  const marginB = mode === "normal" ? (M ? 30 : 40) : 46;
   const H = M ? 240 : 300;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svg.style.width = (M && W > 360) ? `${W}px` : "100%";
@@ -2721,7 +2763,8 @@ function renderDispDailyChart(days) {
   const TRIGGER = 3;
   const n = n0;
   const groupW = plotW / n;
-  const barW = Math.min(26, groupW * 0.55);
+  const barW = mode === "normal" ? Math.min(26, groupW * 0.55) : Math.max(1.3, groupW * 0.72);
+  const MESES = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
 
   const maxVal = Math.max(TRIGGER + 1, ...days.map(d => d.hours));
   const niceMax = niceCeiling(maxVal);
@@ -2757,26 +2800,75 @@ function renderDispDailyChart(days) {
   triggerLabel.textContent = `GATILHO ${TRIGGER}H`;
   svg.appendChild(triggerLabel);
 
+  const gxOf = i => marginL + groupW*i + groupW/2;
+
+  // modos compacto/denso: rótulos de valor só nos dias acima do gatilho, sem sobrepor (o maior valor tem prioridade)
+  const valueLabelSet = new Set();
+  if (mode !== "normal") {
+    const placedX = [];
+    days.map((d,i)=>({d,i})).filter(o => o.d.hours >= TRIGGER).sort((a,b) => b.d.hours - a.d.hours).forEach(o => {
+      const gx = gxOf(o.i);
+      if (placedX.every(px => Math.abs(px - gx) >= 30)) { placedX.push(gx); valueLabelSet.add(o.i); }
+    });
+  }
+
+  // modos compacto/denso: separador e rótulo de cada mês
+  if (mode !== "normal") {
+    const multiYear = days[0].date.getFullYear() !== days[n-1].date.getFullYear();
+    let cands = [];
+    days.forEach((d,i) => { if (d.date.getDate() === 1 || i === 0) cands.push(i); });
+    if (cands.length > 1 && days[cands[0]].date.getDate() !== 1 && (gxOf(cands[1]) - gxOf(cands[0])) < 30) cands.shift();
+    cands.forEach((i, ci) => {
+      const d = days[i];
+      const gx = gxOf(i);
+      if (d.date.getDate() === 1 && i > 0) {
+        const x = marginL + groupW*i;
+        svg.appendChild(el("line",{x1:x,y1:marginT,x2:x,y2:marginT+plotH,stroke:"#E4E1DA","stroke-width":1,"stroke-dasharray":"2 3"}));
+      }
+      const mt = MESES[d.date.getMonth()] + ((multiYear && (ci === 0 || d.date.getMonth() === 0)) ? "/" + String(d.date.getFullYear()).slice(2) : "");
+      const y = mode === "dense" ? marginT+plotH+16 : marginT+plotH+34;
+      const isFirstPartial = i === 0 && d.date.getDate() !== 1;
+      const t = el("text",{x: isFirstPartial ? gx - groupW/2 : gx - groupW/2, y, "text-anchor":"start","font-size":9,"font-weight":700,fill:"#6E6A63","font-family":"'IBM Plex Mono',monospace"});
+      t.textContent = mt;
+      svg.appendChild(t);
+    });
+  }
+
   days.forEach((d,i)=>{
-    const gx = marginL + groupW*i + groupW/2;
+    const gx = gxOf(i);
     const h = (d.hours/niceMax)*plotH;
     const isTrigger = d.hours >= TRIGGER;
-    const bar = el("path",{d:roundedTopBarPath(gx-barW/2, marginT+plotH-h, barW, Math.max(h,0), 4), fill:isTrigger?"url(#gradDailyTrigger)":"url(#gradDailyOk)", filter:"url(#dispBarShadow2)"});
-    bar.style.cursor = "pointer";
-    bar.addEventListener("mousemove",(evt)=> showTooltip(evt, dBR(d.date), [
+    const barAttrs = {d:roundedTopBarPath(gx-barW/2, marginT+plotH-h, barW, Math.max(h,0), mode==="normal" ? 4 : Math.min(2, barW/2)), fill:isTrigger?"url(#gradDailyTrigger)":"url(#gradDailyOk)"};
+    if (mode === "normal") barAttrs.filter = "url(#dispBarShadow2)";
+    const bar = el("path", barAttrs);
+    const tipRows = [
       {key:"Horas de falha", val:d.hours, color: isTrigger?COLOR_SALDO_NEG:COLOR_REALIZADO, fmt:fmtHoursShort},
       {key:"Nº de falhas", val:d.count, color:"#948F86", fmt:fmtInt},
-    ]));
+    ];
+    bar.style.cursor = "pointer";
+    bar.addEventListener("mousemove",(evt)=> showTooltip(evt, dBR(d.date), tipRows));
     bar.addEventListener("mouseleave", hideTooltip);
     svg.appendChild(bar);
-    if (d.hours > 0) {
+    if (mode !== "normal") {
+      // barras finas são difíceis de apontar: coluna transparente do dia inteiro recebe o tooltip
+      const hit = el("rect",{x:gx-groupW/2,y:marginT,width:groupW,height:plotH,fill:"transparent"});
+      hit.style.cursor = "pointer";
+      hit.addEventListener("mousemove",(evt)=> showTooltip(evt, dBR(d.date), tipRows));
+      hit.addEventListener("mouseleave", hideTooltip);
+      svg.appendChild(hit);
+    }
+    if (d.hours > 0 && (mode === "normal" || valueLabelSet.has(i))) {
       const l = el("text",{x:gx,y:marginT+plotH-h-6,"text-anchor":"middle","font-size":8,fill:isTrigger?COLOR_SALDO_NEG:COLOR_REALIZADO,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
       l.textContent = fmtHoursShort(d.hours);
       svg.appendChild(l);
     }
-    const dayLabel = el("text",{x:gx,y:marginT+plotH+16,"text-anchor":"middle","font-size":n>15?8.5:10,fill:"#6E6A63","font-family":"Inter,sans-serif"});
-    dayLabel.textContent = String(d.date.getDate()).padStart(2,"0");
-    svg.appendChild(dayLabel);
+    const dd = d.date.getDate();
+    const showDayNum = mode === "normal" || (mode === "compact" && (dd === 1 || dd === 8 || dd === 15 || dd === 22));
+    if (showDayNum) {
+      const dayLabel = el("text",{x:gx,y:marginT+plotH+16,"text-anchor":"middle","font-size":n>15?8.5:10,fill:"#6E6A63","font-family":"Inter,sans-serif"});
+      dayLabel.textContent = String(dd).padStart(2,"0");
+      svg.appendChild(dayLabel);
+    }
   });
 
   svg.appendChild(el("line",{x1:marginL,y1:marginT+plotH,x2:W-marginR,y2:marginT+plotH,stroke:"#D6D2C9"}));
@@ -2840,7 +2932,7 @@ function renderDisponibilidade() {
   renderWeeklyLineChart("dispWeeklyChart", weeks, "disponibilidade", COLOR_REALIZADO, fmtPct, dispFilterStart, true);
   renderDispDailyChart(dailySeries);
 
-  const equipStats = computeEquipmentStats(rangeStats.records);
+  const equipStats = capTopItems(computeEquipmentStats(rangeStats.records), 15);
   const turnoStats = computeTurnoStats(rangeStats.records);
   renderHoursBarChart("dispEquipChart", equipStats, COLOR_REALIZADO);
   renderHoursBarChart("dispTurnoChart", turnoStats, COLOR_ORCADO);
@@ -3687,10 +3779,35 @@ function computeProgDailySeries(records, rangeStart, rangeEnd) {
   return days;
 }
 
+function computeProgMonthlySeries(records, rangeStart, rangeEnd) {
+  if (!rangeStart || !rangeEnd) return [];
+  const months = [];
+  let cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+  while (cursor <= rangeEnd) {
+    const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+    const start = cursor < rangeStart ? dOnly(rangeStart) : cursor;
+    const end = monthEnd > rangeEnd ? dOnly(rangeEnd) : monthEnd;
+    const monthRecords = records.filter(r => r.dataProgramacao && r.dataProgramacao >= start && r.dataProgramacao <= end && !r.dataExclusao);
+    const programadas = monthRecords.length;
+    const executadasNoPrazo = monthRecords.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
+    const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
+    months.push({ start: new Date(start), end: new Date(end), programadas, executadasNoPrazo, aderencia });
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+  return months;
+}
+
+const MESES_ABREV = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
 function progLabelFor(item, granularity) {
+  if (granularity === "mes") return `${MESES_ABREV[item.start.getMonth()]}/${String(item.start.getFullYear()).slice(2)}`;
   return granularity === "dia"
     ? `${String(item.start.getDate()).padStart(2,"0")}/${String(item.start.getMonth()+1).padStart(2,"0")}`
     : `SEM ${weekNumberSunday(item.start)}`;
+}
+function progTooltipTitle(item, granularity) {
+  if (granularity === "dia") return dBR(item.start);
+  if (granularity === "mes") return `${progLabelFor(item, granularity)} · ${dBR(item.start)} a ${dBR(item.end)}`;
+  return `SEM ${weekNumberSunday(item.start)} · ${dBR(item.start)} a ${dBR(item.end)}`;
 }
 
 /* ============ gr\u00e1fico: ader\u00eancia semanal/di\u00e1ria (linha) ============ */
@@ -3706,7 +3823,7 @@ function renderProgWeeklyChart(weeks, granularity) {
   const wide = M && n > 6;
   const W = M ? (wide ? Math.max(360, marginL+marginR+n*perPointW) : 360) : 640;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svg.style.width = wide ? `${W}px` : "100%";
+  svg.style.width = "100%"; svg.style.minWidth = wide ? `${W}px` : "";
   const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
   const xScale = i => n === 1 ? marginL + plotW/2 : marginL + (plotW/(n-1))*i;
   const niceMax = 100;
@@ -3728,7 +3845,7 @@ function renderProgWeeklyChart(weeks, granularity) {
     t.textContent = `${Math.round(v)}%`;
     svg.appendChild(t);
   }
-  const labelStep = Math.max(1, Math.ceil(n / 7));
+  const labelStep = Math.max(1, Math.ceil(44 / (n === 1 ? plotW : plotW/(n-1))));
   weeks.forEach((w,i)=>{
     const isStepShown = i % labelStep === 0;
     if (i !== n-1 && !isStepShown) return;
@@ -3744,9 +3861,8 @@ function renderProgWeeklyChart(weeks, granularity) {
   svg.appendChild(el("path",{d:linePath, fill:"none", stroke:COLOR_REALIZADO, "stroke-width":2, filter:`url(#${shadowId})`}));
 
   const cys = weeks.map(w => yScale(w.aderencia));
-  weeks.forEach((w,i)=>{
+  const labelGeom = (i) => {
     const cy = cys[i];
-    svg.appendChild(el("circle",{cx:xScale(i),cy:cy,r:2.8,fill:COLOR_REALIZADO}));
     const prevCy = i>0 ? cys[i-1] : null;
     const nextCy = i<n-1 ? cys[i+1] : null;
     const isPeak = (prevCy===null || cy<=prevCy) && (nextCy===null || cy<=nextCy);
@@ -3770,11 +3886,35 @@ function renderProgWeeklyChart(weeks, granularity) {
     }
     if (cy+dy < marginT+7) dy = 15;
     if (cy+dy > H-36) dy = -10;
+    return { anchor, lx, dy };
+  };
+  // muitos pontos: rotula o último, o maior e o menor e o que couber sem sobrepor
+  const labelShown = new Set();
+  {
+    const order = [n-1];
+    let iMax = 0, iMin = 0;
+    weeks.forEach((w,i)=>{ if (w.aderencia > weeks[iMax].aderencia) iMax = i; if (w.aderencia < weeks[iMin].aderencia) iMin = i; });
+    [iMax, iMin].forEach(i => { if (!order.includes(i)) order.push(i); });
+    for (let i=0;i<n;i++) if (!order.includes(i)) order.push(i);
+    const placed = [];
+    order.forEach(i => {
+      const lw = 4 + String(fmtPct(weeks[i].aderencia)).length * 4.9;
+      const g = labelGeom(i);
+      const left = g.anchor === "start" ? g.lx : (g.anchor === "end" ? g.lx - lw : g.lx - lw/2);
+      const right = left + lw;
+      if (left < 1 || right > W - 1) return; // não deixa o rótulo sair do gráfico
+      if (placed.every(p => right + 3 <= p.left || left >= p.right + 3)) { placed.push({left, right}); labelShown.add(i); }
+    });
+  }
+  weeks.forEach((w,i)=>{
+    const cy = cys[i];
+    svg.appendChild(el("circle",{cx:xScale(i),cy:cy,r:(n > 1 && plotW/(n-1) < 9) ? 1.8 : 2.8,fill:COLOR_REALIZADO}));
+    const { anchor, lx, dy } = labelGeom(i);
     const lbl = el("text",{x:lx,y:cy+dy,"text-anchor":anchor,"font-size":8,fill:COLOR_REALIZADO,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
     lbl.textContent = fmtPct(w.aderencia);
-    svg.appendChild(lbl);
+    if (labelShown.has(i)) svg.appendChild(lbl);
     const hitRect = el("rect",{x:xScale(i)-(plotW/Math.max(n-1,1))/2,y:marginT,width:plotW/Math.max(n,1),height:plotH,fill:"transparent",style:"cursor:pointer"});
-    const tooltipTitle = granularity === "dia" ? dBR(w.start) : `SEM ${weekNumberSunday(w.start)} \u00b7 ${dBR(w.start)} a ${dBR(w.end)}`;
+    const tooltipTitle = progTooltipTitle(w, granularity);
     hitRect.addEventListener("mousemove",(evt)=> showTooltip(evt, tooltipTitle, [
       {key:"Ader\u00eancia", val:w.aderencia, color:COLOR_REALIZADO, fmt:fmtPct},
       {key:"Programadas", val:w.programadas, color:"#948F86", fmt:fmtInt},
@@ -3794,11 +3934,11 @@ function renderProgVolumeChart(weeks, granularity) {
   const n = Math.max(weeks.length, 1);
   const H = M ? 230 : 260;
   const marginL = M ? 30 : 40, marginR = M ? 6 : 10, marginT = 10, marginB = M ? 32 : 40;
-  const perItemW = M ? 46 : 70;
+  const perItemW = M ? 46 : (n <= 10 ? 70 : 50);
   const wide = n > (M ? 6 : 8);
   const W = wide ? Math.max(M ? 360 : 640, marginL+marginR+n*perItemW) : (M ? 360 : 640);
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svg.style.width = wide ? `${W}px` : "100%";
+  svg.style.width = "100%"; svg.style.minWidth = wide ? `${W}px` : "";
   const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
   const groupW = plotW / n;
   const barW = Math.min(22, groupW * 0.32);
@@ -3839,7 +3979,7 @@ function renderProgVolumeChart(weeks, granularity) {
     const barE = el("path",{d:roundedTopBarPath(gx+2, marginT+plotH-hE, barW, Math.max(hE,0), 4), fill:"url(#progGradExecutadas)", filter:"url(#progVolShadow)"});
     [barP, barE].forEach(bar => {
       bar.style.cursor = "pointer";
-      bar.addEventListener("mousemove",(evt)=> showTooltip(evt, progLabelFor(w, granularity), [
+      bar.addEventListener("mousemove",(evt)=> showTooltip(evt, progTooltipTitle(w, granularity), [
         {key:"Programadas", val:w.programadas, color:COLOR_ORCADO, fmt:fmtInt},
         {key:"Executadas no prazo", val:w.executadasNoPrazo, color:COLOR_REALIZADO, fmt:fmtInt},
         {key:"Ader\u00eancia", val:w.aderencia, color:COLOR_REALIZADO, fmt:fmtPct},
@@ -3869,15 +4009,21 @@ function renderProgramacao() {
   if (!progData) return;
   const range = computeProgRange(progData.records, progFilterStart, progFilterEnd);
   const spanDays = Math.round((progFilterEnd - progFilterStart) / 86400000) + 1;
-  const granularity = spanDays <= 7 ? "dia" : "semana";
+  // períodos longos (ciclo inteiro) ficam ilegíveis por semana: acima de ~4 meses passa a mostrar por mês
+  const granularity = spanDays <= 7 ? "dia" : (spanDays > 120 ? "mes" : "semana");
   const series = granularity === "dia"
     ? computeProgDailySeries(progData.records, progFilterStart, progFilterEnd)
-    : computeProgWeeklySeries(progData.records, progFilterStart, progFilterEnd);
+    : (granularity === "mes"
+      ? computeProgMonthlySeries(progData.records, progFilterStart, progFilterEnd)
+      : computeProgWeeklySeries(progData.records, progFilterStart, progFilterEnd));
 
-  document.getElementById("progWeeklyChartTitle").textContent = granularity === "dia" ? "Aderência diária" : "Aderência semanal";
-  document.getElementById("progWeeklyChartTag").textContent = granularity === "dia" ? "visão diária" : "domingo a sábado";
-  document.getElementById("progVolumeChartTitle").textContent = granularity === "dia" ? "Ordens programadas × executadas no prazo por dia" : "Ordens programadas × executadas no prazo por semana";
-  document.getElementById("progVolumeChartTag").textContent = granularity === "dia" ? "visão diária" : "domingo a sábado";
+  const granNome = { dia: "diária", semana: "semanal", mes: "mensal" }[granularity];
+  const granPor = { dia: "por dia", semana: "por semana", mes: "por mês" }[granularity];
+  const granTag = { dia: "visão diária", semana: "domingo a sábado", mes: "visão mensal" }[granularity];
+  document.getElementById("progWeeklyChartTitle").textContent = `Aderência ${granNome}`;
+  document.getElementById("progWeeklyChartTag").textContent = granTag;
+  document.getElementById("progVolumeChartTitle").textContent = `Ordens programadas × executadas no prazo ${granPor}`;
+  document.getElementById("progVolumeChartTag").textContent = granTag;
 
   const rangeLabel = (+progFilterStart === +progFilterEnd) ? dBR(progFilterStart) : `${dBR(progFilterStart)} a ${dBR(progFilterEnd)}`;
   document.getElementById("progRangeTag").textContent = rangeLabel;
