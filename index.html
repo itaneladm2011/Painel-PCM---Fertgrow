@@ -1129,9 +1129,10 @@ function setCloudStatus(msg, cls) {
   el.textContent = msg;
   el.className = "cloud-sync-status" + (cls ? " " + cls : "");
 }
-function pushToCloud(key, data, fileName) {
+// ts: mesmo horário gravado no meta local; assim a nuvem nunca parece "mais nova" que o que este navegador acabou de salvar
+function pushToCloud(key, data, fileName, ts) {
   supabase.from("app_state")
-    .upsert({ key, data, file_name: fileName ?? null, updated_at: new Date().toISOString() })
+    .upsert({ key, data, file_name: fileName ?? null, updated_at: new Date(ts || Date.now()).toISOString() })
     .then(({ error }) => {
       if (error) setCloudStatus("Salvo localmente; falha ao sincronizar com a nuvem", "err");
       else setCloudStatus("Sincronizado com a nuvem", "ok");
@@ -1963,7 +1964,7 @@ async function saveRcaStore() {
     localStorage.setItem(RCA_STORAGE_META_KEY, JSON.stringify({ updatedAt }));
     rcaLastLoadedAt = updatedAt;
     const ok = await cloudGuardBeforeSave(RCA_STORAGE_KEY, previousLoadedAt);
-    if (ok) pushToCloud(RCA_STORAGE_KEY, rcaStore, null);
+    if (ok) pushToCloud(RCA_STORAGE_KEY, rcaStore, null, updatedAt);
   } catch (e) {
     console.warn("Não foi possível salvar as análises de falha no armazenamento local:", e);
   }
@@ -4389,7 +4390,7 @@ async function saveManualActions() {
     localStorage.setItem(PLANO_MANUAL_STORAGE_META_KEY, JSON.stringify({ updatedAt }));
     planoLastLoadedAt = updatedAt;
     const ok = await cloudGuardBeforeSave(PLANO_MANUAL_STORAGE_KEY, previousLoadedAt);
-    if (ok) pushToCloud(PLANO_MANUAL_STORAGE_KEY, manualActions, null);
+    if (ok) pushToCloud(PLANO_MANUAL_STORAGE_KEY, manualActions, null, updatedAt);
   } catch (e) {
     console.warn("N\u00e3o foi poss\u00edvel salvar o plano de a\u00e7\u00e3o no armazenamento local:", e);
   }
