@@ -752,7 +752,7 @@
               </div>
               <div class="rca-field">
                 <label for="rcaResponsavel">Responsável pela análise</label>
-                <input type="text" id="rcaResponsavel" placeholder="Nome do responsável">
+                <input type="text" id="rcaResponsavel" placeholder="Nome do responsável" autocomplete="off">
               </div>
               <div class="rca-field">
                 <label for="rcaEquipamento">Equipamento (TAG)</label>
@@ -985,7 +985,7 @@
             </div>
             <div class="rca-field">
               <label for="planoResponsavel">Responsável</label>
-              <input type="text" id="planoResponsavel" placeholder="Nome do responsável">
+              <input type="text" id="planoResponsavel" placeholder="Nome do responsável" autocomplete="off">
             </div>
             <div class="rca-field">
               <label for="planoTag">TAG</label>
@@ -3448,6 +3448,42 @@ function renderRcaCompletedList() {
   });
 }
 
+/* ---- identificação de quem registra: sempre o NOME, nunca o e-mail de login ---- */
+const currentUser = { email: null, nome: null };
+function userDisplayName(user) {
+  const m = (user && user.user_metadata) || {};
+  return String(m.nome || m.full_name || m.name || m.display_name || "").trim();
+}
+async function askUserName(force) {
+  let asked = false;
+  try { asked = sessionStorage.getItem("painelNomeAsked") === "1"; } catch (e) {}
+  if (asked && !force) return; // no login pergunta uma vez por sessão; ao registrar algo (force) pergunta de novo se ainda faltar
+  try { sessionStorage.setItem("painelNomeAsked", "1"); } catch (e) {}
+  const nome = (prompt("Como seu nome deve aparecer nos registros do painel?\n(nome e sobrenome — o e-mail de login não é exibido)") || "").trim();
+  if (nome.length < 2) return;
+  currentUser.nome = nome;
+  try { await supabase.auth.updateUser({ data: { nome } }); } catch (e) { console.warn("Não foi possível salvar o nome no perfil:", e); }
+}
+async function loadCurrentUser() {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const u = data && data.session && data.session.user;
+    if (!u) return;
+    currentUser.email = u.email || null;
+    currentUser.nome = userDisplayName(u) || null;
+    if (!currentUser.nome) await askUserName();
+  } catch (e) {}
+  if (typeof renderRcaDismissedList === "function" && dispData) renderRcaDismissedList();
+}
+// registros antigos guardaram o e-mail: nunca mostrar o e-mail; se for o do usuário logado, mostra o nome dele
+function authorLabel(v) {
+  if (!v) return "";
+  const s = String(v);
+  if (!s.includes("@")) return s;
+  if (currentUser.email && s.toLowerCase() === currentUser.email.toLowerCase()) return currentUser.nome || "";
+  return "";
+}
+
 /* ---- dispensa de análise (não há necessidade de análise; exige justificativa) ---- */
 const RCA_DISPENSA_MIN_CHARS = 10;
 
@@ -3481,11 +3517,8 @@ document.getElementById("btnConfirmDispensa").addEventListener("click", async ()
   const day = getTriggeredDays().find(d => d.dateIso === dateIso);
   if (!day) return;
   if (!confirm(`Confirma que NÃO há necessidade de análise de causa raiz em ${dBR(day.date)}?\n\nO alerta de pendência será removido e a justificativa ficará registrada.`)) return;
-  let por = null;
-  try {
-    const { data } = await supabase.auth.getSession();
-    por = data && data.session && data.session.user ? data.session.user.email : null;
-  } catch (e) {}
+  if (!currentUser.nome) await askUserName(true); // registra o nome, nunca o e-mail
+  const por = currentUser.nome || null;
   const now = Date.now();
   rcaStore[dateIso] = {
     dateIso,
@@ -3520,7 +3553,7 @@ function renderRcaDismissedList() {
       <div class="rca-summary-head">
         <div>
           <div class="rca-summary-title">${dBR(dParseIso(rca.dateIso))} — ${fmtHM(rca.totalHours)} de falha (${rca.failureCount} registro(s)) · análise dispensada</div>
-          <div class="rca-summary-sub">dispensada em ${fmtDateTime(rca.updatedAt)}${rca.dispensadaPor ? " por " + esc(rca.dispensadaPor) : ""}</div>
+          <div class="rca-summary-sub">dispensada em ${fmtDateTime(rca.updatedAt)}${authorLabel(rca.dispensadaPor) ? " por " + esc(authorLabel(rca.dispensadaPor)) : ""}</div>
         </div>
         <div style="display:flex;gap:8px;flex:0 0 auto;">
           <button type="button" class="btn ghost small rca-redo-btn">Fazer análise mesmo assim</button>
@@ -4946,6 +4979,7 @@ function showApp() {
   document.getElementById("appShell").style.display = "";
   initMobileAccordions();
   init();
+  loadCurrentUser();
 }
 /* ============ cartões retráteis (mobile) ============ */
 function initMobileAccordions() {
