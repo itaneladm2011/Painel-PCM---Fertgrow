@@ -3969,8 +3969,11 @@ function computeProgWeeklySeries(records, rangeStart, rangeEnd) {
   const weeks = [];
   for (let ws = firstWeekStart; ws <= lastWeekStart; ws = dAdd(ws, 7)) {
     const weEnd = dAdd(ws, 6);
-    if (ws < rangeStart || weEnd > rangeEnd) continue; // semana quebrada pelo período filtrado (não fechada de domingo a sábado dentro do período)
-    const weekRecords = records.filter(r => r.dataProgramacao && r.dataProgramacao >= ws && r.dataProgramacao <= weEnd && !r.dataExclusao);
+    // semanas que começam antes do período filtrado ou terminam depois dele continuam aparecendo,
+    // mas contam só os dias dentro do período — mesma regra já usada na Evolução Semanal da Disponibilidade
+    const clipStart = ws < rangeStart ? rangeStart : ws;
+    const clipEnd = weEnd > rangeEnd ? rangeEnd : weEnd;
+    const weekRecords = records.filter(r => r.dataProgramacao && r.dataProgramacao >= clipStart && r.dataProgramacao <= clipEnd && !r.dataExclusao);
     const programadas = weekRecords.length;
     const executadasNoPrazo = weekRecords.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
     const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
