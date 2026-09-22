@@ -4285,7 +4285,11 @@ function renderProgramacao() {
   progTableRecords = combined.map(r => {
     let status, statusColor;
     if (!r.dataProgramacao) { status = "Realizadas com atraso"; statusColor = "#B08900"; }
-    else if (!r.dataExecucao) { status = "Pendente"; statusColor = "#948F86"; }
+    else if (!r.dataExecucao) {
+      // ordem programada para hoje: o dia ainda não fechou, então não é "pendente" ainda — conta como no prazo
+      if (+r.dataProgramacao === +dOnly(new Date())) { status = "No prazo"; statusColor = COLOR_REALIZADO; }
+      else { status = "Pendente"; statusColor = "#948F86"; }
+    }
     else if (executadaNoPrazo(r.dataProgramacao, r.dataExecucao)) { status = "No prazo"; statusColor = COLOR_REALIZADO; }
     else { status = "Realizadas com atraso"; statusColor = "#B08900"; }
     return { ...r, status, statusColor };
