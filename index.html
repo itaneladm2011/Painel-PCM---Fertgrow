@@ -219,8 +219,8 @@
 
   .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
   @media (max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr);}}
-  #planoKpiRow{grid-template-columns:repeat(5,1fr);}
-  @media (max-width:900px){#planoKpiRow{grid-template-columns:repeat(2,1fr);}#planoKpiRow .kpi-card:first-child{grid-column:1 / -1;}}
+  #planoKpiRow, #solicKpiRow{grid-template-columns:repeat(5,1fr);}
+  @media (max-width:900px){#planoKpiRow,#solicKpiRow{grid-template-columns:repeat(2,1fr);}#planoKpiRow .kpi-card:first-child,#solicKpiRow .kpi-card:first-child{grid-column:1 / -1;}}
   .kpi-card{background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
   .kpi-label{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:8px;}
   .kpi-value{font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--text-strong);}
@@ -455,6 +455,10 @@
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 11.5l2 2 4-4"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
           <span>Plano de Ação</span>
           <span class="nav-badge" id="navPlanoAcaoBadge" style="display:none;">0</span>
+        </button>
+        <button class="primary-nav-item" id="navSolicitacoes" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+          <span>Solicitações de Serviço</span>
         </button>
       </nav>
       <button class="theme-toggle" id="themeToggle" type="button">
@@ -1070,6 +1074,72 @@
       </div>
     </div>
 
+    <div id="panelSolicitacoes" style="display:none;">
+      <div class="panel empty-panel" id="solicEmptyState">
+        <div class="empty-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+        </div>
+        <div class="panel-title" style="justify-content:center;">Solicitações de Serviço</div>
+        <p class="empty-text">Assim que os dados de solicitações chegarem do sistema Melvin, os indicadores de atendimento aparecem aqui.</p>
+      </div>
+
+      <div id="solicDashboard" style="display:none;">
+        <div class="panel no-collapse">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Período de referência <span class="tag" id="solicRangeTag"></span></div>
+          <div class="date-filter-row">
+            <div class="date-filter-field">
+              <label for="solicDateStart">De</label>
+              <input type="date" id="solicDateStart">
+            </div>
+            <div class="date-filter-field">
+              <label for="solicDateEnd">Até</label>
+              <input type="date" id="solicDateEnd">
+            </div>
+            <div class="view-toggle" id="solicPresets">
+              <button data-preset="semana" type="button">Esta semana</button>
+              <button data-preset="semana_anterior" type="button">Semana anterior</button>
+              <button data-preset="mes" class="active" type="button">Este mês</button>
+              <button data-preset="mes_anterior" type="button">Mês anterior</button>
+              <button data-preset="tudo" type="button">Tudo</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-row" id="solicKpiRow"></div>
+
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>Tempo médio de atendimento <span class="tag">dias até abrir a OS · domingo a sábado</span></div>
+          <div class="chart-wrap"><svg id="solicAtendimentoChart" width="100%" viewBox="0 0 640 240" preserveAspectRatio="xMidYMid meet"></svg></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>Tempo médio de encerramento <span class="tag">dias até fechar a OS · domingo a sábado</span></div>
+          <div class="chart-wrap"><svg id="solicEncerramentoChart" width="100%" viewBox="0 0 640 240" preserveAspectRatio="xMidYMid meet"></svg></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>Solicitações no período <span class="tag" id="solicTableTag"></span></div>
+          <div class="view-toggle" id="solicStatusFilter" style="margin-bottom:12px;">
+            <button data-status="todas" class="active" type="button">Todas</button>
+            <button data-status="atendida" type="button">Atendidas</button>
+            <button data-status="pendente" type="button">Pendentes</button>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th style="text-align:left;">Cód.</th><th style="text-align:left;">Equipamento</th><th style="text-align:left;">Aberta em</th><th style="text-align:left;">OS vinculada</th><th style="text-align:left;">Dias p/ atender</th><th style="text-align:left;">Dias p/ encerrar</th><th style="text-align:left;">Situação</th></tr>
+              </thead>
+              <tbody id="solicTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="disp-source-footer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
+        Dados atualizados automaticamente a partir do sistema Melvin, a cada 1 hora.
+      </div>
+    </div>
+
     <footer>DADOS — CONTROLE ORÇADO × REALIZADO · 502 · CICLO 26/27</footer>
       </div>
     </div>
@@ -1095,6 +1165,10 @@
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 11.5l2 2 4-4"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
         <span>Plano</span>
         <span class="nav-badge mobile-tab-badge" id="navPlanoAcaoBadgeM" style="display:none;">0</span>
+      </button>
+      <button class="mobile-tab-item" id="navSolicitacoesM" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+        <span>Solicit.</span>
       </button>
     </nav>
   </div>
@@ -1128,6 +1202,7 @@ const CLOUD_SYNC_KEYS = [
   "painelAnaliseFalhas_v1",
   "painelProgramacao_data_v1",
   "painelPlanoAcaoManual_v1",
+  "painelSolicitacoes_data_v1",
 ];
 function setCloudStatus(msg, cls) {
   const el = document.getElementById("cloudSyncStatus");
@@ -2276,6 +2351,31 @@ function loadProgFromStorage() {
 function clearProgStorage() {
   localStorage.removeItem(PROG_STORAGE_KEY);
   localStorage.removeItem(PROG_STORAGE_META_KEY);
+}
+
+/* ============ Solicitações de Serviço — 100% via API do Melvin (sem upload) ============ */
+const SOLIC_STORAGE_KEY = "painelSolicitacoes_data_v1";
+const SOLIC_STORAGE_META_KEY = "painelSolicitacoes_meta_v1";
+let solicitacoesData = null;
+
+function parseSolicDate(v) { return v ? new Date(v) : null; }
+function loadSolicFromStorage() {
+  try {
+    const raw = localStorage.getItem(SOLIC_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const records = parsed.records.map(r => ({
+      ...r,
+      dataAbertura: parseSolicDate(r.dataAbertura),
+      osDataAbertura: parseSolicDate(r.osDataAbertura),
+      osDataEncerramento: parseSolicDate(r.osDataEncerramento),
+    }));
+    const metaRaw = localStorage.getItem(SOLIC_STORAGE_META_KEY);
+    const meta = metaRaw ? JSON.parse(metaRaw) : null;
+    return { data: { records }, meta };
+  } catch (e) {
+    return null;
+  }
 }
 
 async function handleProgFile(file) {
@@ -4377,6 +4477,307 @@ document.getElementById("progDateEnd").addEventListener("change", (e) => {
   renderProgramacao();
 });
 
+/* ============ Solicita\u00e7\u00f5es de Servi\u00e7o \u2014 c\u00e1lculo e render ============
+   Premissa (definida pelo usu\u00e1rio): uma solicita\u00e7\u00e3o conta como "atendida" no
+   momento em que uma Ordem de Servi\u00e7o \u00e9 aberta atrelada a ela (idOrdemServico
+   preenchido) \u2014 n\u00e3o precisa a OS estar encerrada. As duas m\u00e9dias de tempo usam
+   sempre a data de ABERTURA da solicita\u00e7\u00e3o como refer\u00eancia (nunca a data da OS). */
+let solicFilterStart = null;
+let solicFilterEnd = null;
+
+function initSolicFilterDefaults() {
+  const today = dOnly(new Date());
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  solicFilterStart = monthStart;
+  solicFilterEnd = today;
+  document.getElementById("solicDateStart").value = dIso(monthStart);
+  document.getElementById("solicDateEnd").value = dIso(today);
+  document.querySelectorAll("#solicPresets button").forEach(b => b.classList.toggle("active", b.dataset.preset === "mes"));
+}
+
+function diasEntre(a, b) { return (b - a) / 86400000; } // fracion\u00e1rio: atendimento no mesmo dia conta como menos de 1 dia
+
+function computeSolicRange(records, start, end) {
+  const inRange = records.filter(r => r.dataAbertura && dOnly(r.dataAbertura) >= start && dOnly(r.dataAbertura) <= end);
+  const total = inRange.length;
+  const atendidas = inRange.filter(r => r.idOrdemServico).length;
+  const pendentes = total - atendidas;
+  const pctAtendidas = total > 0 ? (atendidas / total) * 100 : 0;
+  const comAtendimento = inRange.filter(r => r.idOrdemServico && r.osDataAbertura);
+  const diasParaAtender = comAtendimento.length > 0
+    ? comAtendimento.reduce((s, r) => s + diasEntre(r.dataAbertura, r.osDataAbertura), 0) / comAtendimento.length
+    : null;
+  const comEncerramento = inRange.filter(r => r.osDataEncerramento);
+  const diasParaEncerrar = comEncerramento.length > 0
+    ? comEncerramento.reduce((s, r) => s + diasEntre(r.dataAbertura, r.osDataEncerramento), 0) / comEncerramento.length
+    : null;
+  return { records: inRange, total, atendidas, pendentes, pctAtendidas, diasParaAtender, diasParaEncerrar, countAtendimento: comAtendimento.length, countEncerramento: comEncerramento.length };
+}
+
+// semanas nas bordas do per\u00edodo filtrado continuam aparecendo, mas contam s\u00f3 os dias dentro do
+// per\u00edodo \u2014 mesma regra j\u00e1 usada na Evolu\u00e7\u00e3o Semanal da Disponibilidade e na Ader\u00eancia da Programa\u00e7\u00e3o
+function computeSolicWeeklySeries(records, rangeStart, rangeEnd) {
+  if (!rangeStart || !rangeEnd) return [];
+  const firstWeekStart = dWeekStartSunday(rangeStart);
+  const lastWeekStart = dWeekStartSunday(rangeEnd);
+  const weeks = [];
+  for (let ws = firstWeekStart; ws <= lastWeekStart; ws = dAdd(ws, 7)) {
+    const weEnd = dAdd(ws, 6);
+    const clipStart = ws < rangeStart ? rangeStart : ws;
+    const clipEnd = weEnd > rangeEnd ? rangeEnd : weEnd;
+    const weekRecords = records.filter(r => r.dataAbertura && dOnly(r.dataAbertura) >= clipStart && dOnly(r.dataAbertura) <= clipEnd);
+    const comAtendimento = weekRecords.filter(r => r.idOrdemServico && r.osDataAbertura);
+    const diasParaAtender = comAtendimento.length > 0
+      ? comAtendimento.reduce((s, r) => s + diasEntre(r.dataAbertura, r.osDataAbertura), 0) / comAtendimento.length
+      : 0;
+    const comEncerramento = weekRecords.filter(r => r.osDataEncerramento);
+    const diasParaEncerrar = comEncerramento.length > 0
+      ? comEncerramento.reduce((s, r) => s + diasEntre(r.dataAbertura, r.osDataEncerramento), 0) / comEncerramento.length
+      : 0;
+    weeks.push({ start: ws, end: weEnd, diasParaAtender, diasParaEncerrar, countAtendimento: comAtendimento.length, countEncerramento: comEncerramento.length });
+  }
+  return weeks;
+}
+
+/* ============ gr\u00e1fico: linha semanal gen\u00e9rica em dias (reaproveitada pelas 2 vis\u00f5es) ============ */
+function renderSolicWeeklyChart(svgId, weeks, valueKey, countKey, color, label) {
+  const svg = document.getElementById(svgId);
+  svg.innerHTML = "";
+  if (!weeks.length) return;
+  const M = isMobileView();
+  const n = weeks.length;
+  const H = M ? 220 : 240;
+  const marginL = M ? 32 : 44, marginR = 10, marginT = 12, marginB = M ? 26 : 30;
+  const perPointW = M ? 60 : 0;
+  const wide = M && n > 6;
+  const W = M ? (wide ? Math.max(360, marginL+marginR+n*perPointW) : 360) : 640;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.style.width = "100%"; svg.style.minWidth = wide ? `${W}px` : "";
+  const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
+  const xScale = i => n === 1 ? marginL + plotW/2 : marginL + (plotW/(n-1))*i;
+  const niceMax = niceCeiling(Math.max(1, ...weeks.map(w => w[valueKey])));
+  const yScale = v => marginT + plotH - (v/niceMax)*plotH;
+
+  const shadowId = svgId + "Shadow";
+  const defs = el("defs", {});
+  const shadow = el("filter", {id:shadowId, x:"-20%", y:"-60%", width:"140%", height:"220%"});
+  shadow.appendChild(el("feDropShadow", {dx:"0", dy:"1.3", stdDeviation:"1.3", "flood-color":"#221610", "flood-opacity":"0.15"}));
+  defs.appendChild(shadow);
+  svg.appendChild(defs);
+
+  const ticks = 4;
+  for (let i=0;i<=ticks;i++){
+    const v = niceMax*i/ticks;
+    const y = yScale(v);
+    svg.appendChild(el("line",{x1:marginL,y1:y,x2:W-marginR,y2:y,stroke:"#ECEBE6","stroke-dasharray":"3 3"}));
+    const t = el("text",{x:marginL-6,y:y+3,"text-anchor":"end","font-size":8.5,fill:"#948F86","font-family":"Inter,sans-serif"});
+    t.textContent = fmtDaysPlain(v);
+    svg.appendChild(t);
+  }
+  const labelStep = Math.max(1, Math.ceil(44 / (n === 1 ? plotW : plotW/(n-1))));
+  weeks.forEach((w,i)=>{
+    const isStepShown = i % labelStep === 0;
+    if (i !== n-1 && !isStepShown) return;
+    if (i !== n-1 && isStepShown && (n-1-i) < labelStep) return;
+    const anchor = i===0 ? "start" : (i===n-1 ? "end" : "middle");
+    const tx = i===0 ? xScale(i)+2 : (i===n-1 ? xScale(i)-2 : xScale(i));
+    const t = el("text",{x:tx,y:H-10,"text-anchor":anchor,"font-size":9,fill:"#948F86","font-family":"Inter,sans-serif"});
+    t.textContent = `SEM ${weekNumberSunday(w.start)}`;
+    svg.appendChild(t);
+  });
+
+  const linePath = weeks.map((w,i)=> `${i===0?'M':'L'} ${xScale(i)} ${yScale(w[valueKey])}`).join(" ");
+  svg.appendChild(el("path",{d:linePath, fill:"none", stroke:color, "stroke-width":2, filter:`url(#${shadowId})`}));
+
+  const cys = weeks.map(w => yScale(w[valueKey]));
+  const labelGeom = (i) => {
+    const cy = cys[i];
+    const prevCy = i>0 ? cys[i-1] : null;
+    const nextCy = i<n-1 ? cys[i+1] : null;
+    const isPeak = (prevCy===null || cy<=prevCy) && (nextCy===null || cy<=nextCy);
+    const isValley = !isPeak && (prevCy===null || cy>=prevCy) && (nextCy===null || cy>=nextCy);
+    const sloped = !isPeak && !isValley;
+    let anchor = i===0 ? "start" : (i===n-1 ? "end" : "middle");
+    let lx = i===0 ? xScale(i)+6 : (i===n-1 ? xScale(i)-6 : xScale(i));
+    if (sloped && i!==0 && i!==n-1) {
+      const ascending = nextCy < cy;
+      anchor = ascending ? "end" : "start";
+      lx = ascending ? xScale(i)-7 : xScale(i)+7;
+    }
+    let dy = -10;
+    if (i === 0 || i === n-1) {
+      const stepX = plotW / Math.max(1, n-1);
+      const neighborCy = i === 0 ? nextCy : prevCy;
+      if (neighborCy !== null) {
+        const proj = (neighborCy - cy) / stepX * 26;
+        dy = Math.max(-34, Math.min(-10, proj - 6));
+      }
+    }
+    if (cy+dy < marginT+7) dy = 15;
+    if (cy+dy > H-36) dy = -10;
+    return { anchor, lx, dy };
+  };
+  const labelShown = new Set();
+  {
+    const order = [n-1];
+    let iMax = 0, iMin = 0;
+    weeks.forEach((w,i)=>{ if (w[valueKey] > weeks[iMax][valueKey]) iMax = i; if (w[valueKey] < weeks[iMin][valueKey]) iMin = i; });
+    [iMax, iMin].forEach(i => { if (!order.includes(i)) order.push(i); });
+    for (let i=0;i<n;i++) if (!order.includes(i)) order.push(i);
+    const placed = [];
+    order.forEach(i => {
+      const lw = 4 + String(fmtDaysPlain(weeks[i][valueKey])).length * 4.6;
+      const g = labelGeom(i);
+      const left = g.anchor === "start" ? g.lx : (g.anchor === "end" ? g.lx - lw : g.lx - lw/2);
+      const right = left + lw;
+      if (left < 1 || right > W - 1) return;
+      if (placed.every(p => right + 3 <= p.left || left >= p.right + 3)) { placed.push({left, right}); labelShown.add(i); }
+    });
+  }
+  weeks.forEach((w,i)=>{
+    const cy = cys[i];
+    svg.appendChild(el("circle",{cx:xScale(i),cy:cy,r:(n > 1 && plotW/(n-1) < 9) ? 1.8 : 2.8,fill:color}));
+    const { anchor, lx, dy } = labelGeom(i);
+    const lbl = el("text",{x:lx,y:cy+dy,"text-anchor":anchor,"font-size":8,fill:color,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
+    lbl.textContent = fmtDaysPlain(w[valueKey]);
+    if (labelShown.has(i)) svg.appendChild(lbl);
+    const hitRect = el("rect",{x:xScale(i)-(plotW/Math.max(n-1,1))/2,y:marginT,width:plotW/Math.max(n,1),height:plotH,fill:"transparent",style:"cursor:pointer"});
+    hitRect.addEventListener("mousemove",(evt)=> showTooltip(evt, `SEM ${weekNumberSunday(w.start)} \u00b7 ${dBR(w.start)} a ${dBR(w.end)}`, [
+      {key:label, val:w[valueKey], color, fmt:fmtDaysPlain},
+      {key:"Solicita\u00e7\u00f5es consideradas", val:w[countKey], color:"#948F86", fmt:fmtInt},
+    ]));
+    hitRect.addEventListener("mouseleave", hideTooltip);
+    svg.appendChild(hitRect);
+  });
+  svg.appendChild(el("line",{x1:marginL,y1:marginT+plotH,x2:W-marginR,y2:marginT+plotH,stroke:"#D6D2C9"}));
+}
+
+let solicTableRecords = [];
+let solicTableStatusFilter = "todas";
+
+function renderSolicitacoes() {
+  if (!solicitacoesData) return;
+  const range = computeSolicRange(solicitacoesData.records, solicFilterStart, solicFilterEnd);
+  const weeks = computeSolicWeeklySeries(solicitacoesData.records, solicFilterStart, solicFilterEnd);
+
+  const rangeLabel = (+solicFilterStart === +solicFilterEnd) ? dBR(solicFilterStart) : `${dBR(solicFilterStart)} a ${dBR(solicFilterEnd)}`;
+  document.getElementById("solicRangeTag").textContent = `${rangeLabel}`;
+
+  document.getElementById("solicKpiRow").innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Solicita\u00e7\u00f5es no per\u00edodo</div>
+      <div class="kpi-value">${range.total}</div>
+      <div class="kpi-sub">abertas entre ${rangeLabel}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_REALIZADO}">Atendidas</div>
+      <div class="kpi-value">${range.atendidas}</div>
+      <div class="kpi-sub">${fmtPct(range.pctAtendidas)} do total \u00b7 OS j\u00e1 aberta</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Pendentes</div>
+      <div class="kpi-value">${range.pendentes}</div>
+      <div class="kpi-sub">ainda sem OS aberta</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Tempo m\u00e9dio de atendimento</div>
+      <div class="kpi-value">${range.diasParaAtender === null ? "\u2014" : fmtDaysPlain(range.diasParaAtender)}</div>
+      <div class="kpi-sub">${range.countAtendimento} solicita\u00e7\u00e3o(\u00f5es) com OS aberta</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Tempo m\u00e9dio de encerramento</div>
+      <div class="kpi-value">${range.diasParaEncerrar === null ? "\u2014" : fmtDaysPlain(range.diasParaEncerrar)}</div>
+      <div class="kpi-sub">${range.countEncerramento} solicita\u00e7\u00e3o(\u00f5es) com OS encerrada</div>
+    </div>
+  `;
+
+  renderSolicWeeklyChart("solicAtendimentoChart", weeks, "diasParaAtender", "countAtendimento", COLOR_REALIZADO, "Tempo m\u00e9dio de atendimento");
+  renderSolicWeeklyChart("solicEncerramentoChart", weeks, "diasParaEncerrar", "countEncerramento", COLOR_ORCADO, "Tempo m\u00e9dio de encerramento");
+
+  solicTableRecords = range.records.slice().sort((a,b) => b.dataAbertura - a.dataAbertura);
+  renderSolicTableRows();
+}
+
+function renderSolicTableRows() {
+  const filtered = solicTableStatusFilter === "todas" ? solicTableRecords
+    : solicTableRecords.filter(r => (solicTableStatusFilter === "atendida") === !!r.idOrdemServico);
+  document.getElementById("solicTableTag").textContent = `${filtered.length} de ${solicTableRecords.length} solicita\u00e7\u00e3o(\u00f5es)`;
+  const tbody = document.getElementById("solicTableBody");
+  tbody.innerHTML = "";
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted3);">Nenhuma solicita\u00e7\u00e3o para esse filtro.</td></tr>`;
+    return;
+  }
+  filtered.forEach(r => {
+    const tr = document.createElement("tr");
+    const atendida = !!r.idOrdemServico;
+    const diasAtender = r.osDataAbertura ? fmtDaysPlain(diasEntre(r.dataAbertura, r.osDataAbertura)) : "\u2014";
+    const diasEncerrar = r.osDataEncerramento ? fmtDaysPlain(diasEntre(r.dataAbertura, r.osDataEncerramento)) : "\u2014";
+    const situacao = atendida
+      ? (r.osDataEncerramento ? `<span style="color:${COLOR_REALIZADO};font-weight:600;">Atendida \u00b7 OS encerrada</span>` : `<span style="color:${COLOR_REALIZADO};font-weight:600;">Atendida</span>`)
+      : `<span style="color:${COLOR_SALDO_NEG};font-weight:600;">Pendente</span>`;
+    tr.innerHTML = `
+      <td style="text-align:left;">${esc(r.codigo ?? "\u2014")}</td>
+      <td style="text-align:left;" title="${esc(r.solicitacao || "")}">${esc(r.equipamento || "\u2014")}</td>
+      <td style="text-align:left;">${dBR(r.dataAbertura)}</td>
+      <td style="text-align:left;">${esc(r.codigoOrdemServicoDestino || "\u2014")}</td>
+      <td style="text-align:left;">${diasAtender}</td>
+      <td style="text-align:left;">${diasEncerrar}</td>
+      <td style="text-align:left;">${situacao}${r.statusTexto ? ` <span class="tag">${esc(r.statusTexto)}</span>` : ""}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+document.querySelectorAll("#solicStatusFilter button").forEach(b => b.addEventListener("click", () => {
+  solicTableStatusFilter = b.dataset.status;
+  document.querySelectorAll("#solicStatusFilter button").forEach(x => x.classList.toggle("active", x === b));
+  renderSolicTableRows();
+}));
+
+function applySolicPreset(preset) {
+  const today = dOnly(new Date());
+  document.querySelectorAll("#solicPresets button").forEach(b => b.classList.toggle("active", b.dataset.preset === preset));
+  if (preset === "semana") {
+    solicFilterStart = dWeekStartSunday(today); solicFilterEnd = dAdd(solicFilterStart, 6);
+  } else if (preset === "semana_anterior") {
+    const thisWeekStart = dWeekStartSunday(today);
+    solicFilterStart = dAdd(thisWeekStart, -7);
+    solicFilterEnd = dAdd(solicFilterStart, 6);
+  } else if (preset === "mes") {
+    solicFilterStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthEnd = new Date(today.getFullYear(), today.getMonth()+1, 0);
+    solicFilterEnd = monthEnd > today ? today : monthEnd;
+  } else if (preset === "mes_anterior") {
+    solicFilterStart = new Date(today.getFullYear(), today.getMonth()-1, 1);
+    solicFilterEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+  } else if (preset === "tudo" && solicitacoesData && solicitacoesData.records.length) {
+    let minD = dOnly(solicitacoesData.records[0].dataAbertura), maxD = minD;
+    solicitacoesData.records.forEach(r => { const d = dOnly(r.dataAbertura); if (d < minD) minD = d; if (d > maxD) maxD = d; });
+    let rangeStart = new Date(minD.getFullYear(), minD.getMonth(), 1);
+    let rangeEnd = new Date(maxD.getFullYear(), maxD.getMonth()+1, 0);
+    if (rangeEnd > today) rangeEnd = today;
+    solicFilterStart = rangeStart; solicFilterEnd = rangeEnd;
+  }
+  document.getElementById("solicDateStart").value = dIso(solicFilterStart);
+  document.getElementById("solicDateEnd").value = dIso(solicFilterEnd);
+  renderSolicitacoes();
+}
+document.querySelectorAll("#solicPresets button").forEach(b => {
+  b.addEventListener("click", () => applySolicPreset(b.dataset.preset));
+});
+document.getElementById("solicDateStart").addEventListener("change", (e) => {
+  solicFilterStart = dParseIso(e.target.value);
+  if (solicFilterEnd < solicFilterStart) { solicFilterEnd = solicFilterStart; document.getElementById("solicDateEnd").value = dIso(solicFilterEnd); }
+  document.querySelectorAll("#solicPresets button").forEach(b => b.classList.remove("active"));
+  renderSolicitacoes();
+});
+document.getElementById("solicDateEnd").addEventListener("change", (e) => {
+  solicFilterEnd = dParseIso(e.target.value);
+  if (solicFilterEnd < solicFilterStart) { solicFilterStart = solicFilterEnd; document.getElementById("solicDateStart").value = dIso(solicFilterStart); }
+  document.querySelectorAll("#solicPresets button").forEach(b => b.classList.remove("active"));
+  renderSolicitacoes();
+});
+
 /* ============ Plano de A\u00e7\u00e3o \u2014 armazenamento e modelo unificado ============ */
 const PLANO_MANUAL_STORAGE_KEY = "painelPlanoAcaoManual_v1";
 const PLANO_MANUAL_STORAGE_META_KEY = "painelPlanoAcaoManual_v1_meta";
@@ -4800,16 +5201,19 @@ function switchApp(name) {
   document.getElementById("panelAnaliseFalhas").style.display = name === "analise" ? "" : "none";
   document.getElementById("panelProgramacao").style.display = name === "programacao" ? "" : "none";
   document.getElementById("panelPlanoAcao").style.display = name === "planoacao" ? "" : "none";
+  document.getElementById("panelSolicitacoes").style.display = name === "solicitacoes" ? "" : "none";
   document.getElementById("navCustos").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidade").classList.toggle("active", name === "disponibilidade");
   document.getElementById("navAnaliseFalhas").classList.toggle("active", name === "analise");
   document.getElementById("navProgramacao").classList.toggle("active", name === "programacao");
   document.getElementById("navPlanoAcao").classList.toggle("active", name === "planoacao");
+  document.getElementById("navSolicitacoes").classList.toggle("active", name === "solicitacoes");
   document.getElementById("navCustosM").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidadeM").classList.toggle("active", name === "disponibilidade");
   document.getElementById("navAnaliseFalhasM").classList.toggle("active", name === "analise");
   document.getElementById("navProgramacaoM").classList.toggle("active", name === "programacao");
   document.getElementById("navPlanoAcaoM").classList.toggle("active", name === "planoacao");
+  document.getElementById("navSolicitacoesM").classList.toggle("active", name === "solicitacoes");
   window.scrollTo(0, 0);
   document.getElementById("pageTitle").textContent = name === "disponibilidade"
     ? "Painel de acompanhamento - Disponibilidade de ativos"
@@ -4819,20 +5223,25 @@ function switchApp(name) {
     ? "Indicadores de Programação"
     : name === "planoacao"
     ? "Plano de Ação — Manutenção"
+    : name === "solicitacoes"
+    ? "Solicitações de Serviço"
     : "Painel de acompanhamento OPEX - Ciclo 26/27";
   if (name === "analise") renderAnaliseFalhas();
   if (name === "planoacao") renderPlanoAcao();
+  if (name === "solicitacoes" && solicitacoesData) renderSolicitacoes();
 }
 document.getElementById("navCustos").addEventListener("click", () => switchApp("custos"));
 document.getElementById("navDisponibilidade").addEventListener("click", () => switchApp("disponibilidade"));
 document.getElementById("navAnaliseFalhas").addEventListener("click", () => switchApp("analise"));
 document.getElementById("navProgramacao").addEventListener("click", () => switchApp("programacao"));
 document.getElementById("navPlanoAcao").addEventListener("click", () => switchApp("planoacao"));
+document.getElementById("navSolicitacoes").addEventListener("click", () => switchApp("solicitacoes"));
 document.getElementById("navCustosM").addEventListener("click", () => switchApp("custos"));
 document.getElementById("navDisponibilidadeM").addEventListener("click", () => switchApp("disponibilidade"));
 document.getElementById("navAnaliseFalhasM").addEventListener("click", () => switchApp("analise"));
 document.getElementById("navProgramacaoM").addEventListener("click", () => switchApp("programacao"));
 document.getElementById("navPlanoAcaoM").addEventListener("click", () => switchApp("planoacao"));
+document.getElementById("navSolicitacoesM").addEventListener("click", () => switchApp("solicitacoes"));
 document.getElementById("headerLogo").src = document.querySelector(".brand-logo-sb").src;
 
 const SUN_ICON = '<path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4l1.4-1.4M17 7l1.4-1.4"/><circle cx="12" cy="12" r="4"/>';
@@ -4907,6 +5316,15 @@ function init(){
     }
   }
 
+  const savedSolic = loadSolicFromStorage();
+  if (savedSolic && savedSolic.data && savedSolic.data.records && savedSolic.data.records.length) {
+    solicitacoesData = savedSolic.data;
+    document.getElementById("solicDashboard").style.display = "";
+    document.getElementById("solicEmptyState").style.display = "none";
+    initSolicFilterDefaults();
+    renderSolicitacoes();
+  }
+
   syncFromCloud();
 }
 
@@ -4916,6 +5334,7 @@ function getLocalMetaTimestamp(key) {
     if (key === STORAGE_KEY) { const m = localStorage.getItem(STORAGE_META_KEY); return m ? (JSON.parse(m).updatedAt || 0) : 0; }
     if (key === DISP_STORAGE_KEY) { const m = localStorage.getItem(DISP_STORAGE_META_KEY); return m ? (JSON.parse(m).updatedAt || 0) : 0; }
     if (key === PROG_STORAGE_KEY) { const m = localStorage.getItem(PROG_STORAGE_META_KEY); return m ? (JSON.parse(m).updatedAt || 0) : 0; }
+    if (key === SOLIC_STORAGE_KEY) { const m = localStorage.getItem(SOLIC_STORAGE_META_KEY); return m ? (JSON.parse(m).updatedAt || 0) : 0; }
     if (key === RCA_STORAGE_KEY) return rcaLastLoadedAt;
     if (key === PLANO_MANUAL_STORAGE_KEY) return planoLastLoadedAt;
   } catch (e) {}
@@ -4984,6 +5403,21 @@ async function syncFromCloud() {
         localStorage.setItem(PLANO_MANUAL_STORAGE_META_KEY, JSON.stringify({ updatedAt: cloudTs }));
         updateNavPlanoBadge();
         renderPlanoAcao();
+      } else if (row.key === SOLIC_STORAGE_KEY) {
+        const raw = row.data;
+        const records = raw.records.map(r => ({
+          ...r,
+          dataAbertura: parseSolicDate(r.dataAbertura),
+          osDataAbertura: parseSolicDate(r.osDataAbertura),
+          osDataEncerramento: parseSolicDate(r.osDataEncerramento),
+        }));
+        solicitacoesData = { records };
+        localStorage.setItem(SOLIC_STORAGE_KEY, JSON.stringify(raw));
+        localStorage.setItem(SOLIC_STORAGE_META_KEY, JSON.stringify({ updatedAt: cloudTs }));
+        document.getElementById("solicDashboard").style.display = "";
+        document.getElementById("solicEmptyState").style.display = "none";
+        initSolicFilterDefaults();
+        renderSolicitacoes();
       }
     }
     setCloudStatus(anyApplied ? "Atualizado com dados da nuvem" : "Sincronizado com a nuvem", "ok");
