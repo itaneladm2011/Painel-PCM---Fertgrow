@@ -852,7 +852,7 @@
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg>
         </div>
         <div class="panel-title" style="justify-content:center;">Indicadores de Programação</div>
-        <p class="empty-text">Painel em construção — carregue a planilha no final da página para ver a pré-visualização dos dados. Os indicadores serão definidos e adicionados na sequência.</p>
+        <p class="empty-text">Assim que os dados de programação chegarem do sistema Melvin, os indicadores de aderência, backlog e execução aparecem aqui.</p>
       </div>
 
       <div id="progDashboard" style="display:none;">
@@ -912,23 +912,29 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="16" x2="12" y2="4"/><polyline points="6 10 12 4 18 10"/><line x1="4" y1="20" x2="20" y2="20"/></svg>Carregar planilha de programação</div>
-        <div class="upload-panel" id="uploadPanelProg">
-          <div class="upload-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          </div>
-          <div class="upload-text">
-            <div class="upload-title">Carregar planilha (.xlsx)</div>
-            <div class="upload-sub">Arraste o arquivo aqui ou clique em "Carregar arquivo". A pré-visualização aparece acima automaticamente.</div>
-            <div class="status-line" id="statusLineProg">Nenhuma planilha carregada ainda.</div>
-          </div>
-          <div class="upload-actions">
-            <button class="btn primary" id="btnUploadProg" type="button">Carregar arquivo</button>
-            <button class="btn ghost" id="btnResetProg" type="button" style="display:none;">Remover planilha</button>
-            <input type="file" id="fileInputProg" accept=".xlsx,.xls">
+      <div style="display:none;">
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="16" x2="12" y2="4"/><polyline points="6 10 12 4 18 10"/><line x1="4" y1="20" x2="20" y2="20"/></svg>Carregar planilha de programação</div>
+          <div class="upload-panel" id="uploadPanelProg">
+            <div class="upload-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="upload-text">
+              <div class="upload-title">Carregar planilha (.xlsx)</div>
+              <div class="upload-sub">Arraste o arquivo aqui ou clique em "Carregar arquivo". A pré-visualização aparece acima automaticamente.</div>
+              <div class="status-line" id="statusLineProg">Nenhuma planilha carregada ainda.</div>
+            </div>
+            <div class="upload-actions">
+              <button class="btn primary" id="btnUploadProg" type="button">Carregar arquivo</button>
+              <button class="btn ghost" id="btnResetProg" type="button" style="display:none;">Remover planilha</button>
+              <input type="file" id="fileInputProg" accept=".xlsx,.xls">
+            </div>
           </div>
         </div>
+      </div>
+      <div class="disp-source-footer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
+        Dados atualizados automaticamente a partir do sistema Melvin, a cada 1 hora.
       </div>
     </div>
 
