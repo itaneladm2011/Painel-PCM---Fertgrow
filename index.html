@@ -1108,13 +1108,18 @@
         <div class="kpi-row" id="solicKpiRow"></div>
 
         <div class="panel">
-          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>Tempo médio de atendimento <span class="tag">dias até abrir a OS · domingo a sábado</span></div>
-          <div class="chart-wrap"><svg id="solicAtendimentoChart" width="100%" viewBox="0 0 640 240" preserveAspectRatio="xMidYMid meet"></svg></div>
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>Solicitações por planta <span class="tag" id="solicPlantaQtdTag"></span></div>
+          <div class="chart-wrap"><svg id="solicPlantaQtdChart" width="100%" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg></div>
         </div>
 
         <div class="panel">
-          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>Tempo médio de encerramento <span class="tag">dias até fechar a OS · domingo a sábado</span></div>
-          <div class="chart-wrap"><svg id="solicEncerramentoChart" width="100%" viewBox="0 0 640 240" preserveAspectRatio="xMidYMid meet"></svg></div>
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Atendimento por planta <span class="tag">% do total de cada planta</span></div>
+          <div class="chart-wrap"><svg id="solicPlantaPctChart" width="100%" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg></div>
+          <div class="legend">
+            <span class="legend-item"><span class="legend-swatch" style="background:#948F86"></span>Pendente</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:#B08900"></span>Atendida (OS aberta)</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:var(--realizado)"></span>Concluída (OS encerrada)</span>
+          </div>
         </div>
 
         <div class="panel">
@@ -4516,140 +4521,139 @@ function computeSolicRange(records, start, end) {
 
 // semanas nas bordas do per\u00edodo filtrado continuam aparecendo, mas contam s\u00f3 os dias dentro do
 // per\u00edodo \u2014 mesma regra j\u00e1 usada na Evolu\u00e7\u00e3o Semanal da Disponibilidade e na Ader\u00eancia da Programa\u00e7\u00e3o
-function computeSolicWeeklySeries(records, rangeStart, rangeEnd) {
-  if (!rangeStart || !rangeEnd) return [];
-  const firstWeekStart = dWeekStartSunday(rangeStart);
-  const lastWeekStart = dWeekStartSunday(rangeEnd);
-  const weeks = [];
-  for (let ws = firstWeekStart; ws <= lastWeekStart; ws = dAdd(ws, 7)) {
-    const weEnd = dAdd(ws, 6);
-    const clipStart = ws < rangeStart ? rangeStart : ws;
-    const clipEnd = weEnd > rangeEnd ? rangeEnd : weEnd;
-    const weekRecords = records.filter(r => r.dataAbertura && dOnly(r.dataAbertura) >= clipStart && dOnly(r.dataAbertura) <= clipEnd);
-    const comAtendimento = weekRecords.filter(r => r.idOrdemServico && r.osDataAbertura);
-    const diasParaAtender = comAtendimento.length > 0
-      ? comAtendimento.reduce((s, r) => s + diasEntre(r.dataAbertura, r.osDataAbertura), 0) / comAtendimento.length
-      : 0;
-    const comEncerramento = weekRecords.filter(r => r.osDataEncerramento);
-    const diasParaEncerrar = comEncerramento.length > 0
-      ? comEncerramento.reduce((s, r) => s + diasEntre(r.dataAbertura, r.osDataEncerramento), 0) / comEncerramento.length
-      : 0;
-    weeks.push({ start: ws, end: weEnd, diasParaAtender, diasParaEncerrar, countAtendimento: comAtendimento.length, countEncerramento: comEncerramento.length });
-  }
-  return weeks;
+// classifica\u00e7\u00e3o em 3 estados: pendente (sem OS) / atendida (OS aberta, ainda n\u00e3o encerrada) /
+// conclu\u00edda (OS encerrada \u2014 atividade conclu\u00edda). "Atendida" sozinho (KPI/tabela) continua contando
+// qualquer solicita\u00e7\u00e3o com OS atrelada; aqui a visualiza\u00e7\u00e3o por planta detalha esse grupo em dois.
+function solicEstado(r) {
+  if (!r.idOrdemServico) return "pendente";
+  return r.osDataEncerramento ? "concluida" : "atendida";
 }
 
-/* ============ gr\u00e1fico: linha semanal gen\u00e9rica em dias (reaproveitada pelas 2 vis\u00f5es) ============ */
-function renderSolicWeeklyChart(svgId, weeks, valueKey, countKey, color, label) {
+function computeSolicByPlanta(records) {
+  const byPlanta = {};
+  records.forEach(r => {
+    const label = r.filial || "Sem planta";
+    if (!byPlanta[label]) byPlanta[label] = { label, total: 0, pendente: 0, atendida: 0, concluida: 0 };
+    byPlanta[label][solicEstado(r)]++;
+    byPlanta[label].total++;
+  });
+  return Object.values(byPlanta).sort((a, b) => b.total - a.total);
+}
+
+/* ============ gr\u00e1fico: quantidade de solicita\u00e7\u00f5es por planta (barras horizontais) ============ */
+function renderSolicPlantaQtdChart(svgId, groups) {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
-  if (!weeks.length) return;
   const M = isMobileView();
-  const n = weeks.length;
-  const H = M ? 220 : 240;
-  const marginL = M ? 32 : 44, marginR = 10, marginT = 12, marginB = M ? 26 : 30;
-  const perPointW = M ? 60 : 0;
-  const wide = M && n > 6;
-  const W = M ? (wide ? Math.max(360, marginL+marginR+n*perPointW) : 360) : 640;
+  const rowH = 30;
+  const marginL = M ? 110 : 160, marginR = M ? 40 : 56, marginT = 8, marginB = 8;
+  const W = M ? 360 : 700;
+  const list = groups.length ? groups : [{ label: "\u2014", total: 0, pendente: 0, atendida: 0, concluida: 0 }];
+  const plotW = W - marginL - marginR;
+  const plotH = list.length * rowH;
+  const H = plotH + marginT + marginB;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svg.style.width = "100%"; svg.style.minWidth = wide ? `${W}px` : "";
-  const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
-  const xScale = i => n === 1 ? marginL + plotW/2 : marginL + (plotW/(n-1))*i;
-  const niceMax = niceCeiling(Math.max(1, ...weeks.map(w => w[valueKey])));
-  const yScale = v => marginT + plotH - (v/niceMax)*plotH;
 
-  const shadowId = svgId + "Shadow";
+  const maxVal = Math.max(1, ...list.map(a => a.total));
+  const niceMax = niceCeiling(maxVal);
+  const xScale = v => (v / niceMax) * plotW;
+
+  const gradId = svgId + "Grad", shadowId = svgId + "Shadow";
   const defs = el("defs", {});
-  const shadow = el("filter", {id:shadowId, x:"-20%", y:"-60%", width:"140%", height:"220%"});
-  shadow.appendChild(el("feDropShadow", {dx:"0", dy:"1.3", stdDeviation:"1.3", "flood-color":"#221610", "flood-opacity":"0.15"}));
+  const grad = el("linearGradient", { id: gradId, x1: "0", y1: "0", x2: "1", y2: "0" });
+  grad.appendChild(el("stop", { offset: "0%", "stop-color": lighten(COLOR_REALIZADO, 0.32) }));
+  grad.appendChild(el("stop", { offset: "100%", "stop-color": COLOR_REALIZADO }));
+  defs.appendChild(grad);
+  const shadow = el("filter", { id: shadowId, x: "-20%", y: "-60%", width: "140%", height: "220%" });
+  shadow.appendChild(el("feDropShadow", { dx: "0", dy: "1", stdDeviation: "1", "flood-color": "#221610", "flood-opacity": "0.16" }));
   defs.appendChild(shadow);
   svg.appendChild(defs);
 
   const ticks = 4;
-  for (let i=0;i<=ticks;i++){
-    const v = niceMax*i/ticks;
-    const y = yScale(v);
-    svg.appendChild(el("line",{x1:marginL,y1:y,x2:W-marginR,y2:y,stroke:"#ECEBE6","stroke-dasharray":"3 3"}));
-    const t = el("text",{x:marginL-6,y:y+3,"text-anchor":"end","font-size":8.5,fill:"#948F86","font-family":"Inter,sans-serif"});
-    t.textContent = fmtDaysPlain(v);
-    svg.appendChild(t);
+  for (let i = 0; i <= ticks; i++) {
+    const v = niceMax * i / ticks;
+    const x = marginL + xScale(v);
+    svg.appendChild(el("line", { x1: x, y1: marginT, x2: x, y2: marginT + plotH, stroke: "#ECEBE6", "stroke-dasharray": "3 3" }));
   }
-  const labelStep = Math.max(1, Math.ceil(44 / (n === 1 ? plotW : plotW/(n-1))));
-  weeks.forEach((w,i)=>{
-    const isStepShown = i % labelStep === 0;
-    if (i !== n-1 && !isStepShown) return;
-    if (i !== n-1 && isStepShown && (n-1-i) < labelStep) return;
-    const anchor = i===0 ? "start" : (i===n-1 ? "end" : "middle");
-    const tx = i===0 ? xScale(i)+2 : (i===n-1 ? xScale(i)-2 : xScale(i));
-    const t = el("text",{x:tx,y:H-10,"text-anchor":anchor,"font-size":9,fill:"#948F86","font-family":"Inter,sans-serif"});
-    t.textContent = `SEM ${weekNumberSunday(w.start)}`;
-    svg.appendChild(t);
-  });
 
-  const linePath = weeks.map((w,i)=> `${i===0?'M':'L'} ${xScale(i)} ${yScale(w[valueKey])}`).join(" ");
-  svg.appendChild(el("path",{d:linePath, fill:"none", stroke:color, "stroke-width":2, filter:`url(#${shadowId})`}));
+  list.forEach((a, i) => {
+    const gy = marginT + i * rowH + rowH / 2;
+    const barH = Math.min(18, rowH * 0.6);
+    const w = Math.max(0, xScale(a.total));
+    const label = el("text", { x: marginL - 8, y: gy + 3.5, "text-anchor": "end", "font-size": 9.5, fill: "#34302B", "font-weight": 600, "font-family": "'IBM Plex Mono',monospace" });
+    const maxChars = Math.floor((marginL - 10) / 5.8);
+    label.textContent = a.label.length > maxChars ? a.label.slice(0, maxChars - 1) + "\u2026" : a.label;
+    svg.appendChild(label);
 
-  const cys = weeks.map(w => yScale(w[valueKey]));
-  const labelGeom = (i) => {
-    const cy = cys[i];
-    const prevCy = i>0 ? cys[i-1] : null;
-    const nextCy = i<n-1 ? cys[i+1] : null;
-    const isPeak = (prevCy===null || cy<=prevCy) && (nextCy===null || cy<=nextCy);
-    const isValley = !isPeak && (prevCy===null || cy>=prevCy) && (nextCy===null || cy>=nextCy);
-    const sloped = !isPeak && !isValley;
-    let anchor = i===0 ? "start" : (i===n-1 ? "end" : "middle");
-    let lx = i===0 ? xScale(i)+6 : (i===n-1 ? xScale(i)-6 : xScale(i));
-    if (sloped && i!==0 && i!==n-1) {
-      const ascending = nextCy < cy;
-      anchor = ascending ? "end" : "start";
-      lx = ascending ? xScale(i)-7 : xScale(i)+7;
-    }
-    let dy = -10;
-    if (i === 0 || i === n-1) {
-      const stepX = plotW / Math.max(1, n-1);
-      const neighborCy = i === 0 ? nextCy : prevCy;
-      if (neighborCy !== null) {
-        const proj = (neighborCy - cy) / stepX * 26;
-        dy = Math.max(-34, Math.min(-10, proj - 6));
-      }
-    }
-    if (cy+dy < marginT+7) dy = 15;
-    if (cy+dy > H-36) dy = -10;
-    return { anchor, lx, dy };
-  };
-  const labelShown = new Set();
-  {
-    const order = [n-1];
-    let iMax = 0, iMin = 0;
-    weeks.forEach((w,i)=>{ if (w[valueKey] > weeks[iMax][valueKey]) iMax = i; if (w[valueKey] < weeks[iMin][valueKey]) iMin = i; });
-    [iMax, iMin].forEach(i => { if (!order.includes(i)) order.push(i); });
-    for (let i=0;i<n;i++) if (!order.includes(i)) order.push(i);
-    const placed = [];
-    order.forEach(i => {
-      const lw = 4 + String(fmtDaysPlain(weeks[i][valueKey])).length * 4.6;
-      const g = labelGeom(i);
-      const left = g.anchor === "start" ? g.lx : (g.anchor === "end" ? g.lx - lw : g.lx - lw/2);
-      const right = left + lw;
-      if (left < 1 || right > W - 1) return;
-      if (placed.every(p => right + 3 <= p.left || left >= p.right + 3)) { placed.push({left, right}); labelShown.add(i); }
-    });
-  }
-  weeks.forEach((w,i)=>{
-    const cy = cys[i];
-    svg.appendChild(el("circle",{cx:xScale(i),cy:cy,r:(n > 1 && plotW/(n-1) < 9) ? 1.8 : 2.8,fill:color}));
-    const { anchor, lx, dy } = labelGeom(i);
-    const lbl = el("text",{x:lx,y:cy+dy,"text-anchor":anchor,"font-size":8,fill:color,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
-    lbl.textContent = fmtDaysPlain(w[valueKey]);
-    if (labelShown.has(i)) svg.appendChild(lbl);
-    const hitRect = el("rect",{x:xScale(i)-(plotW/Math.max(n-1,1))/2,y:marginT,width:plotW/Math.max(n,1),height:plotH,fill:"transparent",style:"cursor:pointer"});
-    hitRect.addEventListener("mousemove",(evt)=> showTooltip(evt, `SEM ${weekNumberSunday(w.start)} \u00b7 ${dBR(w.start)} a ${dBR(w.end)}`, [
-      {key:label, val:w[valueKey], color, fmt:fmtDaysPlain},
-      {key:"Solicita\u00e7\u00f5es consideradas", val:w[countKey], color:"#948F86", fmt:fmtInt},
+    const bar = el("rect", { x: marginL, y: gy - barH / 2, width: w, height: barH, rx: 4, fill: `url(#${gradId})`, filter: `url(#${shadowId})` });
+    bar.style.cursor = "pointer";
+    bar.addEventListener("mousemove", (evt) => showTooltip(evt, a.label, [
+      { key: "Total de solicita\u00e7\u00f5es", val: a.total, color: COLOR_REALIZADO, fmt: fmtInt },
+      { key: "Pendentes", val: a.pendente, color: "#948F86", fmt: fmtInt },
+      { key: "Atendidas (OS aberta)", val: a.atendida, color: "#B08900", fmt: fmtInt },
+      { key: "Conclu\u00eddas (OS encerrada)", val: a.concluida, color: COLOR_REALIZADO, fmt: fmtInt },
     ]));
-    hitRect.addEventListener("mouseleave", hideTooltip);
-    svg.appendChild(hitRect);
+    bar.addEventListener("mouseleave", hideTooltip);
+    svg.appendChild(bar);
+
+    if (a.total > 0) {
+      const vLabel = el("text", { x: marginL + w + 6, y: gy + 3.5, "text-anchor": "start", "font-size": 9, fill: COLOR_REALIZADO, "font-weight": 700, "font-family": "'IBM Plex Mono',monospace" });
+      vLabel.textContent = fmtInt(a.total);
+      svg.appendChild(vLabel);
+    }
   });
-  svg.appendChild(el("line",{x1:marginL,y1:marginT+plotH,x2:W-marginR,y2:marginT+plotH,stroke:"#D6D2C9"}));
+
+  svg.appendChild(el("line", { x1: marginL, y1: marginT, x2: marginL, y2: marginT + plotH, stroke: "#D6D2C9" }));
+}
+
+/* ============ gr\u00e1fico: % de atendimento por planta (barras horizontais empilhadas a 100%) ============ */
+function renderSolicPlantaPctChart(svgId, groups) {
+  const svg = document.getElementById(svgId);
+  svg.innerHTML = "";
+  const M = isMobileView();
+  const rowH = 30;
+  const marginL = M ? 110 : 160, marginR = M ? 46 : 64, marginT = 8, marginB = 8;
+  const W = M ? 360 : 700;
+  const list = groups.length ? groups : [{ label: "\u2014", total: 0, pendente: 0, atendida: 0, concluida: 0 }];
+  const plotW = W - marginL - marginR;
+  const plotH = list.length * rowH;
+  const H = plotH + marginT + marginB;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+
+  list.forEach((a, i) => {
+    const gy = marginT + i * rowH + rowH / 2;
+    const barH = 16;
+    const label = el("text", { x: marginL - 8, y: gy + 3.5, "text-anchor": "end", "font-size": 9.5, fill: "#34302B", "font-weight": 600, "font-family": "'IBM Plex Mono',monospace" });
+    const maxChars = Math.floor((marginL - 10) / 5.8);
+    label.textContent = a.label.length > maxChars ? a.label.slice(0, maxChars - 1) + "\u2026" : a.label;
+    svg.appendChild(label);
+
+    const total = Math.max(1, a.total);
+    let cx = marginL;
+    [["pendente", "#948F86", "Pendente"], ["atendida", "#B08900", "Atendida (OS aberta)"], ["concluida", COLOR_REALIZADO, "Conclu\u00edda (OS encerrada)"]].forEach(([key, color, tipLabel]) => {
+      const w = (a[key] / total) * plotW;
+      if (w > 0) {
+        const rect = el("rect", { x: cx, y: gy - barH / 2, width: w, height: barH, fill: color });
+        rect.style.cursor = "pointer";
+        rect.addEventListener("mousemove", (evt) => showTooltip(evt, a.label, [
+          { key: "Pendente", val: a.pendente, color: "#948F86", fmt: fmtInt },
+          { key: "Atendida (OS aberta)", val: a.atendida, color: "#B08900", fmt: fmtInt },
+          { key: "Conclu\u00edda (OS encerrada)", val: a.concluida, color: COLOR_REALIZADO, fmt: fmtInt },
+          { key: "Total", val: a.total, color: "#34302B", fmt: fmtInt },
+        ]));
+        rect.addEventListener("mouseleave", hideTooltip);
+        svg.appendChild(rect);
+      }
+      cx += w;
+    });
+    const pctAtendida = a.total > 0 ? ((a.atendida + a.concluida) / a.total) * 100 : 0;
+    const pctLbl = el("text", { x: marginL + plotW + 6, y: gy + 3.5, "text-anchor": "start", "font-size": 9, fill: "#34302B", "font-weight": 700, "font-family": "'IBM Plex Mono',monospace" });
+    pctLbl.textContent = fmtPct(pctAtendida);
+    svg.appendChild(pctLbl);
+  });
+
+  svg.appendChild(el("line", { x1: marginL, y1: marginT, x2: marginL, y2: marginT + plotH, stroke: "#D6D2C9" }));
+  svg.appendChild(el("line", { x1: marginL + plotW, y1: marginT, x2: marginL + plotW, y2: marginT + plotH, stroke: "#D6D2C9", "stroke-dasharray": "3 3" }));
 }
 
 let solicTableRecords = [];
@@ -4658,7 +4662,7 @@ let solicTableStatusFilter = "todas";
 function renderSolicitacoes() {
   if (!solicitacoesData) return;
   const range = computeSolicRange(solicitacoesData.records, solicFilterStart, solicFilterEnd);
-  const weeks = computeSolicWeeklySeries(solicitacoesData.records, solicFilterStart, solicFilterEnd);
+  const byPlanta = computeSolicByPlanta(range.records);
 
   const rangeLabel = (+solicFilterStart === +solicFilterEnd) ? dBR(solicFilterStart) : `${dBR(solicFilterStart)} a ${dBR(solicFilterEnd)}`;
   document.getElementById("solicRangeTag").textContent = `${rangeLabel}`;
@@ -4691,8 +4695,9 @@ function renderSolicitacoes() {
     </div>
   `;
 
-  renderSolicWeeklyChart("solicAtendimentoChart", weeks, "diasParaAtender", "countAtendimento", COLOR_REALIZADO, "Tempo m\u00e9dio de atendimento");
-  renderSolicWeeklyChart("solicEncerramentoChart", weeks, "diasParaEncerrar", "countEncerramento", COLOR_ORCADO, "Tempo m\u00e9dio de encerramento");
+  document.getElementById("solicPlantaQtdTag").textContent = `${byPlanta.length} planta(s)`;
+  renderSolicPlantaQtdChart("solicPlantaQtdChart", byPlanta);
+  renderSolicPlantaPctChart("solicPlantaPctChart", byPlanta);
 
   solicTableRecords = range.records.slice().sort((a,b) => b.dataAbertura - a.dataAbertura);
   renderSolicTableRows();
