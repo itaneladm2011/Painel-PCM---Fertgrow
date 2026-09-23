@@ -95,6 +95,10 @@
   .account-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;line-height:1;color:var(--muted3);cursor:pointer;padding:2px 4px;}
   .account-close:hover{color:var(--text);}
   .account-email{font-family:'Inter',sans-serif;font-size:13px;color:var(--muted2);text-align:center;margin:-8px 0 4px;word-break:break-all;}
+  .external-link-banner{display:flex;align-items:center;gap:10px;background:#E6EFE9;border:1px solid var(--realizado);
+    border-radius:10px;padding:11px 16px;margin-bottom:18px;font-family:'Inter',sans-serif;font-size:12.5px;
+    color:var(--realizado);text-decoration:none;font-weight:600;}
+  .external-link-banner:hover{background:#D9EBE0;}
   .cloud-sync-status{position:fixed;bottom:10px;right:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;
     color:var(--muted3);z-index:150;opacity:.85;pointer-events:none;}
   .cloud-sync-status.ok{color:var(--saldo-pos);}
@@ -499,6 +503,11 @@
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>
           <span>Controle de Custos</span>
         </button>
+        <a class="primary-nav-item" href="https://linhafert.fertgrow.com.br/FertStrategy/paginas/analise-gerencial.html" target="_blank" rel="noopener noreferrer" title="Abre o FertStrategy (Financeiro/Controladoria) em uma nova aba">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>
+          <span>Custos — FertStrategy</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;opacity:.75;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
         <button class="primary-nav-item" id="navDisponibilidade" type="button">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
           <span>Indicadores de Disponibilidade</span>
@@ -554,6 +563,12 @@
       <aside class="group-tabs" id="groupTabs"></aside>
 
       <main class="main-content">
+
+    <a class="external-link-banner" href="https://linhafert.fertgrow.com.br/FertStrategy/paginas/analise-gerencial.html" target="_blank" rel="noopener noreferrer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>
+      <span>Análise completa de custos (Financeiro/Controladoria): abrir no <b>FertStrategy</b></span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;margin-left:auto;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    </a>
 
     <div class="panel no-collapse">
       <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Trilha do ciclo <span class="tag">12 meses</span></div>
