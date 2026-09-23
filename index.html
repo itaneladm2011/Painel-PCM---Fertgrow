@@ -4593,6 +4593,9 @@ function renderSolicSetorDetail(plantaLabel, scrollToIt) {
   } else {
     ativos.forEach(a => {
       const tr = document.createElement("tr");
+      tr.className = "solic-ativo-row";
+      tr.style.cursor = "pointer";
+      tr.title = "Clique para ver as solicitações deste ativo";
       tr.innerHTML = `
         <td style="text-align:left;">${esc(a.label)}</td>
         <td style="text-align:left;">${fmtInt(a.total)}</td>
@@ -4600,11 +4603,39 @@ function renderSolicSetorDetail(plantaLabel, scrollToIt) {
         <td style="text-align:left;">${fmtInt(a.atendida)}</td>
         <td style="text-align:left;">${fmtInt(a.concluida)}</td>
       `;
+      tr.addEventListener("click", () => toggleSolicAtivoDetailRow(tr, plantaLabel, a.label));
       tbody.appendChild(tr);
     });
   }
   panel.style.display = "";
   if (scrollToIt) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+// linha de solicitações (com a descrição, como a coluna "Solicitação" da tela do Melvin) escondida
+// dentro da tabela de ativos — só aparece quando o usuário clica no ativo
+function toggleSolicAtivoDetailRow(tr, plantaLabel, ativoLabel) {
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains("solic-ativo-detail-row")) { next.remove(); return; }
+  document.querySelectorAll("#solicSetorDetailTableBody .solic-ativo-detail-row").forEach(r => r.remove()); // um aberto por vez
+  const itens = solicPlantaSourceRecords
+    .filter(r => (r.setor || "Sem planta") === plantaLabel && (r.equipamento || "Sem ativo identificado") === ativoLabel)
+    .sort((a, b) => b.dataAbertura - a.dataAbertura);
+  const row = document.createElement("tr");
+  row.className = "solic-ativo-detail-row";
+  // lista com div (não <table> aninhada) — uma tabela dentro do innerHTML de um <tr> faz o navegador
+  // "corrigir" a estrutura e embaralhar o cabeçalho; esse padrão de linha já é usado nos cartões da Análise de Falhas
+  const linhas = itens.map(r => `
+    <div class="rca-action-row">
+      <div class="ar-status" style="background:${r.idOrdemServico ? (r.osDataEncerramento ? COLOR_REALIZADO : "#B08900") : COLOR_SALDO_NEG}"></div>
+      <div class="ar-text">${esc(r.solicitacao || "—")}<div class="ar-owner">Cód. ${esc(r.codigo ?? "—")} · aberta em ${dBR(r.dataAbertura)} · ${solicSituacaoHtml(r)}</div></div>
+    </div>`).join("") || `<div class="a-detail">Nenhuma solicitação encontrada.</div>`;
+  row.innerHTML = `
+    <td colspan="5">
+      <div class="plano-update-box">
+        <div class="plano-update-context"><b>${esc(ativoLabel)}</b> · ${itens.length} solicitação(ões)</div>
+        ${linhas}
+      </div>
+    </td>`;
+  tr.after(row);
 }
 document.getElementById("btnCloseSolicSetorDetail").addEventListener("click", (e) => {
   e.stopPropagation(); // o título do panel também tem clique (acordeão no celular); não deixa borbulhar
@@ -4794,6 +4825,13 @@ function renderSolicitacoes() {
   renderSolicTableRows();
 }
 
+function solicSituacaoHtml(r) {
+  if (!r.idOrdemServico) return `<span style="color:${COLOR_SALDO_NEG};font-weight:600;">Pendente</span>`;
+  return r.osDataEncerramento
+    ? `<span style="color:${COLOR_REALIZADO};font-weight:600;">Atendida \u00b7 OS encerrada</span>`
+    : `<span style="color:${COLOR_REALIZADO};font-weight:600;">Atendida</span>`;
+}
+
 function renderSolicTableRows() {
   const filtered = solicTableStatusFilter === "todas" ? solicTableRecords
     : solicTableRecords.filter(r => (solicTableStatusFilter === "atendida") === !!r.idOrdemServico);
@@ -4806,12 +4844,9 @@ function renderSolicTableRows() {
   }
   filtered.forEach(r => {
     const tr = document.createElement("tr");
-    const atendida = !!r.idOrdemServico;
     const diasAtender = r.osDataAbertura ? fmtDaysPlain(diasEntre(r.dataAbertura, r.osDataAbertura)) : "\u2014";
     const diasEncerrar = r.osDataEncerramento ? fmtDaysPlain(diasEntre(r.dataAbertura, r.osDataEncerramento)) : "\u2014";
-    const situacao = atendida
-      ? (r.osDataEncerramento ? `<span style="color:${COLOR_REALIZADO};font-weight:600;">Atendida \u00b7 OS encerrada</span>` : `<span style="color:${COLOR_REALIZADO};font-weight:600;">Atendida</span>`)
-      : `<span style="color:${COLOR_SALDO_NEG};font-weight:600;">Pendente</span>`;
+    const situacao = solicSituacaoHtml(r);
     tr.innerHTML = `
       <td style="text-align:left;">${esc(r.codigo ?? "\u2014")}</td>
       <td style="text-align:left;" title="${esc(r.solicitacao || "")}">${esc(r.equipamento || "\u2014")}</td>
