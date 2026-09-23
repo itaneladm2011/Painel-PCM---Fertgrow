@@ -86,6 +86,15 @@
   .login-field input:focus{outline:none;border-color:var(--realizado);}
   .login-submit{margin-top:6px;width:100%;text-align:center;padding:11px 15px;}
   .login-error{font-family:'Inter',sans-serif;font-size:12px;color:var(--saldo-neg);text-align:center;}
+  .login-success{font-family:'Inter',sans-serif;font-size:12px;color:var(--saldo-pos);text-align:center;}
+  .login-sub{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--muted2);text-align:center;margin:-6px 0 0;line-height:1.5;}
+  .login-link{background:none;border:none;padding:0;font-family:'Inter',sans-serif;font-size:12.5px;color:var(--realizado);
+    text-decoration:underline;cursor:pointer;text-align:center;}
+  .login-link:hover{color:var(--saldo-pos);}
+  .account-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:550;padding:20px;box-sizing:border-box;}
+  .account-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;line-height:1;color:var(--muted3);cursor:pointer;padding:2px 4px;}
+  .account-close:hover{color:var(--text);}
+  .account-email{font-family:'Inter',sans-serif;font-size:13px;color:var(--muted2);text-align:center;margin:-8px 0 4px;word-break:break-all;}
   .cloud-sync-status{position:fixed;bottom:10px;right:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;
     color:var(--muted3);z-index:150;opacity:.85;pointer-events:none;}
   .cloud-sync-status.ok{color:var(--saldo-pos);}
@@ -424,9 +433,60 @@
         <input type="password" id="loginPassword" autocomplete="current-password" required>
       </label>
       <button type="submit" class="btn primary login-submit" id="loginSubmit">Entrar</button>
+      <button type="button" class="login-link" id="btnForgotPassword">Esqueci minha senha</button>
       <div class="login-error" id="loginError" style="display:none;"></div>
     </form>
+
+    <form id="forgotPasswordForm" class="login-card" style="display:none;">
+      <div class="login-title">Recuperar senha</div>
+      <p class="login-sub">Informe o e-mail da sua conta. Vamos enviar um link para você criar uma nova senha.</p>
+      <label class="login-field">
+        <span>E-mail</span>
+        <input type="email" id="forgotEmail" autocomplete="username" required>
+      </label>
+      <button type="submit" class="btn primary login-submit" id="forgotSubmit">Enviar link</button>
+      <button type="button" class="login-link" id="btnBackToLogin">Voltar para o login</button>
+      <div class="login-error" id="forgotError" style="display:none;"></div>
+      <div class="login-success" id="forgotSuccess" style="display:none;"></div>
+    </form>
+
+    <form id="resetPasswordForm" class="login-card" style="display:none;">
+      <div class="login-title">Defina sua nova senha</div>
+      <label class="login-field">
+        <span>Nova senha</span>
+        <input type="password" id="resetPassword1" autocomplete="new-password" minlength="6" required>
+      </label>
+      <label class="login-field">
+        <span>Confirmar nova senha</span>
+        <input type="password" id="resetPassword2" autocomplete="new-password" minlength="6" required>
+      </label>
+      <button type="submit" class="btn primary login-submit" id="resetSubmit">Salvar nova senha</button>
+      <div class="login-error" id="resetError" style="display:none;"></div>
+    </form>
   </div>
+
+  <div class="account-overlay" id="accountOverlay" style="display:none;">
+    <div class="login-card" style="position:relative;">
+      <button type="button" class="account-close" id="btnCloseAccount" aria-label="Fechar" title="Fechar">×</button>
+      <div class="login-title">Minha conta</div>
+      <div class="account-email" id="accountEmail"></div>
+      <form id="changePasswordForm" style="display:flex;flex-direction:column;gap:14px;">
+        <label class="login-field">
+          <span>Nova senha</span>
+          <input type="password" id="accountPassword1" autocomplete="new-password" minlength="6" required>
+        </label>
+        <label class="login-field">
+          <span>Confirmar nova senha</span>
+          <input type="password" id="accountPassword2" autocomplete="new-password" minlength="6" required>
+        </label>
+        <button type="submit" class="btn primary login-submit" id="accountPasswordSubmit">Salvar nova senha</button>
+        <div class="login-error" id="accountPasswordError" style="display:none;"></div>
+        <div class="login-success" id="accountPasswordSuccess" style="display:none;"></div>
+      </form>
+      <button type="button" class="btn ghost" id="btnLogout" style="width:100%;text-align:center;margin-top:4px;">Sair</button>
+    </div>
+  </div>
+
   <div class="app-shell" id="appShell" style="display:none;">
     <div class="sidebar-hover-zone">
     <aside class="primary-sidebar">
@@ -462,6 +522,10 @@
           <span>Solicitações de Serviço</span>
         </button>
       </nav>
+      <button class="theme-toggle" id="btnOpenAccount" type="button" style="margin-top:8px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>Minha conta</span>
+      </button>
       <button class="theme-toggle" id="themeToggle" type="button">
         <svg id="themeToggleIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         <span id="themeToggleLabel">Tema escuro</span>
@@ -475,6 +539,9 @@
     <div class="header">
       <h1 id="pageTitle">Painel de acompanhamento OPEX - Ciclo 26/27</h1>
       <div class="header-right">
+        <button class="theme-toggle-m" id="btnOpenAccountM" type="button" title="Minha conta" aria-label="Minha conta">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </button>
         <button class="theme-toggle-m" id="themeToggleM" type="button" title="Alternar tema" aria-label="Alternar tema">
           <svg id="themeToggleIconM" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         </button>
@@ -5583,7 +5650,9 @@ async function syncFromCloud() {
 
 /* ============ login (Supabase Auth) ============ */
 document.getElementById("loginLogo").src = document.querySelector(".brand-logo-sb") ? document.querySelector(".brand-logo-sb").src : "";
+let inPasswordRecovery = false; // true entre clicar no link de "esqueci minha senha" e salvar a nova senha
 function showApp() {
+  if (inPasswordRecovery) return; // não entra no painel enquanto a nova senha ainda não foi definida
   document.getElementById("loginGate").style.display = "none";
   document.getElementById("appShell").style.display = "";
   initMobileAccordions();
@@ -5619,6 +5688,26 @@ function initMobileAccordions() {
 function showLoginGate() {
   document.getElementById("appShell").style.display = "none";
   document.getElementById("loginGate").style.display = "flex";
+  if (!inPasswordRecovery) showLoginForm(); // não pisa na tela de "defina sua nova senha" se for esse o caso
+}
+function showLoginForm() {
+  document.getElementById("loginForm").style.display = "flex";
+  document.getElementById("forgotPasswordForm").style.display = "none";
+  document.getElementById("resetPasswordForm").style.display = "none";
+}
+function showForgotPasswordForm() {
+  document.getElementById("loginForm").style.display = "none";
+  document.getElementById("forgotPasswordForm").style.display = "flex";
+  document.getElementById("resetPasswordForm").style.display = "none";
+  document.getElementById("forgotError").style.display = "none";
+  document.getElementById("forgotSuccess").style.display = "none";
+}
+function showResetPasswordForm() {
+  document.getElementById("appShell").style.display = "none";
+  document.getElementById("loginGate").style.display = "flex";
+  document.getElementById("loginForm").style.display = "none";
+  document.getElementById("forgotPasswordForm").style.display = "none";
+  document.getElementById("resetPasswordForm").style.display = "flex";
 }
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -5639,12 +5728,111 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
   }
   showApp();
 });
+document.getElementById("btnForgotPassword").addEventListener("click", showForgotPasswordForm);
+document.getElementById("btnBackToLogin").addEventListener("click", showLoginForm);
+document.getElementById("forgotPasswordForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("forgotEmail").value.trim();
+  const errEl = document.getElementById("forgotError");
+  const okEl = document.getElementById("forgotSuccess");
+  const btn = document.getElementById("forgotSubmit");
+  errEl.style.display = "none";
+  okEl.style.display = "none";
+  btn.disabled = true;
+  btn.textContent = "Enviando…";
+  // redirectTo aponta pra própria página publicada, seja qual for o domínio — o link do e-mail volta pra cá
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
+  btn.disabled = false;
+  btn.textContent = "Enviar link";
+  if (error) {
+    errEl.textContent = "Não foi possível enviar o link agora. Confira o e-mail e tente de novo.";
+    errEl.style.display = "block";
+    return;
+  }
+  okEl.textContent = "Link enviado! Confira o e-mail (e a caixa de spam) e clique no link para criar uma nova senha.";
+  okEl.style.display = "block";
+});
+document.getElementById("resetPasswordForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const p1 = document.getElementById("resetPassword1").value;
+  const p2 = document.getElementById("resetPassword2").value;
+  const errEl = document.getElementById("resetError");
+  const btn = document.getElementById("resetSubmit");
+  errEl.style.display = "none";
+  if (p1 !== p2) { errEl.textContent = "As senhas não coincidem."; errEl.style.display = "block"; return; }
+  if (p1.length < 6) { errEl.textContent = "A senha precisa ter pelo menos 6 caracteres."; errEl.style.display = "block"; return; }
+  btn.disabled = true;
+  btn.textContent = "Salvando…";
+  const { error } = await supabase.auth.updateUser({ password: p1 });
+  btn.disabled = false;
+  btn.textContent = "Salvar nova senha";
+  if (error) {
+    errEl.textContent = "Não foi possível salvar a nova senha. Peça um novo link de recuperação.";
+    errEl.style.display = "block";
+    return;
+  }
+  inPasswordRecovery = false;
+  showApp();
+});
+
+/* ============ minha conta: trocar senha / sair ============ */
+async function openAccountModal() {
+  const { data } = await supabase.auth.getSession();
+  document.getElementById("accountEmail").textContent = (data && data.session && data.session.user && data.session.user.email) || "";
+  document.getElementById("changePasswordForm").reset();
+  document.getElementById("accountPasswordError").style.display = "none";
+  document.getElementById("accountPasswordSuccess").style.display = "none";
+  document.getElementById("accountOverlay").style.display = "flex";
+}
+function closeAccountModal() {
+  document.getElementById("accountOverlay").style.display = "none";
+}
+document.getElementById("btnOpenAccount").addEventListener("click", openAccountModal);
+document.getElementById("btnOpenAccountM").addEventListener("click", openAccountModal);
+document.getElementById("btnCloseAccount").addEventListener("click", closeAccountModal);
+document.getElementById("accountOverlay").addEventListener("click", (e) => { if (e.target.id === "accountOverlay") closeAccountModal(); });
+document.getElementById("changePasswordForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const p1 = document.getElementById("accountPassword1").value;
+  const p2 = document.getElementById("accountPassword2").value;
+  const errEl = document.getElementById("accountPasswordError");
+  const okEl = document.getElementById("accountPasswordSuccess");
+  const btn = document.getElementById("accountPasswordSubmit");
+  errEl.style.display = "none";
+  okEl.style.display = "none";
+  if (p1 !== p2) { errEl.textContent = "As senhas não coincidem."; errEl.style.display = "block"; return; }
+  if (p1.length < 6) { errEl.textContent = "A senha precisa ter pelo menos 6 caracteres."; errEl.style.display = "block"; return; }
+  btn.disabled = true;
+  btn.textContent = "Salvando…";
+  const { error } = await supabase.auth.updateUser({ password: p1 });
+  btn.disabled = false;
+  btn.textContent = "Salvar nova senha";
+  if (error) {
+    errEl.textContent = "Não foi possível salvar a nova senha. Tente novamente.";
+    errEl.style.display = "block";
+    return;
+  }
+  okEl.textContent = "Senha alterada com sucesso.";
+  okEl.style.display = "block";
+  document.getElementById("changePasswordForm").reset();
+});
+document.getElementById("btnLogout").addEventListener("click", async () => {
+  closeAccountModal();
+  await supabase.auth.signOut();
+});
+
 supabase.auth.onAuthStateChange((event, session) => {
+  if (event === "PASSWORD_RECOVERY") {
+    inPasswordRecovery = true;
+    showResetPasswordForm();
+    return;
+  }
   if (event === "SIGNED_OUT" || (!session && document.getElementById("appShell").style.display !== "none")) {
     showLoginGate();
   }
 });
 supabase.auth.getSession().then(({ data }) => {
+  if (inPasswordRecovery) return; // já tratado pelo evento PASSWORD_RECOVERY acima
   if (data && data.session) showApp();
   else showLoginGate();
 });
