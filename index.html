@@ -1120,6 +1120,20 @@
             <span class="legend-item"><span class="legend-swatch" style="background:#B08900"></span>Atendida (OS aberta)</span>
             <span class="legend-item"><span class="legend-swatch" style="background:var(--realizado)"></span>Concluída (OS encerrada)</span>
           </div>
+          <div class="empty-text" style="text-align:left;margin:10px 0 0;">Clique numa barra (dos dois gráficos acima) para ver os ativos daquela planta/área.</div>
+        </div>
+
+        <div class="panel" id="solicSetorDetailPanel" style="display:none;">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span id="solicSetorDetailTitle">Ativos</span> <span class="tag" id="solicSetorDetailTag"></span><button type="button" class="btn ghost small" id="btnCloseSolicSetorDetail" style="margin-left:auto;">Fechar</button></div>
+          <div class="chart-wrap"><svg id="solicSetorDetailChart" width="100%" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg></div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th style="text-align:left;">Ativo</th><th style="text-align:left;">Total</th><th style="text-align:left;">Pendentes</th><th style="text-align:left;">Atendidas</th><th style="text-align:left;">Concluídas</th></tr>
+              </thead>
+              <tbody id="solicSetorDetailTableBody"></tbody>
+            </table>
+          </div>
         </div>
 
         <div class="panel">
@@ -4529,19 +4543,79 @@ function solicEstado(r) {
   return r.osDataEncerramento ? "concluida" : "atendida";
 }
 
-function computeSolicByPlanta(records) {
-  const byPlanta = {};
+function computeSolicGroupBy(records, keyFn, fallbackLabel) {
+  const byKey = {};
   records.forEach(r => {
-    const label = r.setor || "Sem planta";
-    if (!byPlanta[label]) byPlanta[label] = { label, total: 0, pendente: 0, atendida: 0, concluida: 0 };
-    byPlanta[label][solicEstado(r)]++;
-    byPlanta[label].total++;
+    const label = keyFn(r) || fallbackLabel;
+    if (!byKey[label]) byKey[label] = { label, total: 0, pendente: 0, atendida: 0, concluida: 0 };
+    byKey[label][solicEstado(r)]++;
+    byKey[label].total++;
   });
-  return Object.values(byPlanta).sort((a, b) => b.total - a.total);
+  return Object.values(byKey).sort((a, b) => b.total - a.total);
+}
+function computeSolicByPlanta(records) {
+  return computeSolicGroupBy(records, r => r.setor, "Sem planta");
+}
+function computeSolicByAtivo(records, plantaLabel) {
+  const scoped = records.filter(r => (r.setor || "Sem planta") === plantaLabel);
+  return computeSolicGroupBy(scoped, r => r.equipamento, "Sem ativo identificado");
 }
 
-/* ============ gr\u00e1fico: quantidade de solicita\u00e7\u00f5es por planta (barras horizontais) ============ */
-function renderSolicPlantaQtdChart(svgId, groups) {
+// registros por trás dos gráficos "por planta" no momento, pro clique no detalhe filtrar em cima do
+// mesmo período já selecionado (sem precisar recalcular o range de novo)
+let solicPlantaSourceRecords = [];
+let solicDetailOpenPlanta = null;
+
+function toggleSolicSetorDetail(plantaLabel) {
+  const panel = document.getElementById("solicSetorDetailPanel");
+  if (solicDetailOpenPlanta === plantaLabel) {
+    panel.style.display = "none";
+    solicDetailOpenPlanta = null;
+    return;
+  }
+  renderSolicSetorDetail(plantaLabel, true);
+}
+
+// preenche e mostra o painel de detalhe para uma planta já decidida (não alterna/fecha) — usado
+// tanto pelo clique (via toggleSolicSetorDetail) quanto pra atualizar o detalhe já aberto quando o
+// período filtrado muda
+function renderSolicSetorDetail(plantaLabel, scrollToIt) {
+  const panel = document.getElementById("solicSetorDetailPanel");
+  solicDetailOpenPlanta = plantaLabel;
+  const ativos = computeSolicByAtivo(solicPlantaSourceRecords, plantaLabel);
+  document.getElementById("solicSetorDetailTitle").textContent = `Ativos em "${plantaLabel}"`;
+  document.getElementById("solicSetorDetailTag").textContent = `${ativos.length} ativo(s)`;
+  renderSolicPlantaQtdChart("solicSetorDetailChart", ativos); // sem callback de clique: não abre outro nível de detalhe
+  const tbody = document.getElementById("solicSetorDetailTableBody");
+  tbody.innerHTML = "";
+  if (ativos.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted3);">Nenhum ativo encontrado.</td></tr>`;
+  } else {
+    ativos.forEach(a => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="text-align:left;">${esc(a.label)}</td>
+        <td style="text-align:left;">${fmtInt(a.total)}</td>
+        <td style="text-align:left;">${fmtInt(a.pendente)}</td>
+        <td style="text-align:left;">${fmtInt(a.atendida)}</td>
+        <td style="text-align:left;">${fmtInt(a.concluida)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+  panel.style.display = "";
+  if (scrollToIt) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+document.getElementById("btnCloseSolicSetorDetail").addEventListener("click", (e) => {
+  e.stopPropagation(); // o título do panel também tem clique (acordeão no celular); não deixa borbulhar
+  document.getElementById("solicSetorDetailPanel").style.display = "none";
+  solicDetailOpenPlanta = null;
+});
+
+/* ============ gr\u00e1fico: quantidade de solicita\u00e7\u00f5es por planta (barras horizontais) ============
+   onBarClick(label) \u00e9 opcional \u2014 quando informado, cada barra fica clic\u00e1vel (usado pelas 2 barras de
+   n\u00edvel "planta"; a barra de detalhe por ativo n\u00e3o recebe callback, pra n\u00e3o abrir outro n\u00edvel). */
+function renderSolicPlantaQtdChart(svgId, groups, onBarClick) {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
   const M = isMobileView();
@@ -4594,6 +4668,7 @@ function renderSolicPlantaQtdChart(svgId, groups) {
       { key: "Conclu\u00eddas (OS encerrada)", val: a.concluida, color: COLOR_REALIZADO, fmt: fmtInt },
     ]));
     bar.addEventListener("mouseleave", hideTooltip);
+    if (onBarClick) bar.addEventListener("click", () => onBarClick(a.label));
     svg.appendChild(bar);
 
     if (a.total > 0) {
@@ -4607,7 +4682,7 @@ function renderSolicPlantaQtdChart(svgId, groups) {
 }
 
 /* ============ gr\u00e1fico: % de atendimento por planta (barras horizontais empilhadas a 100%) ============ */
-function renderSolicPlantaPctChart(svgId, groups) {
+function renderSolicPlantaPctChart(svgId, groups, onBarClick) {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
   const M = isMobileView();
@@ -4642,7 +4717,15 @@ function renderSolicPlantaPctChart(svgId, groups) {
           { key: "Total", val: a.total, color: "#34302B", fmt: fmtInt },
         ]));
         rect.addEventListener("mouseleave", hideTooltip);
+        if (onBarClick) rect.addEventListener("click", () => onBarClick(a.label));
         svg.appendChild(rect);
+        // r\u00f3tulo de dados dentro do segmento \u2014 s\u00f3 quando cabe, sen\u00e3o fica espremido/ileg\u00edvel
+        if (w >= 14) {
+          const segLbl = el("text", { x: cx + w / 2, y: gy + 3.2, "text-anchor": "middle", "font-size": 8.5, fill: "#fff", "font-weight": 700, "font-family": "'IBM Plex Mono',monospace" });
+          segLbl.textContent = fmtInt(a[key]);
+          segLbl.style.pointerEvents = "none";
+          svg.appendChild(segLbl);
+        }
       }
       cx += w;
     });
@@ -4663,6 +4746,12 @@ function renderSolicitacoes() {
   if (!solicitacoesData) return;
   const range = computeSolicRange(solicitacoesData.records, solicFilterStart, solicFilterEnd);
   const byPlanta = computeSolicByPlanta(range.records);
+  solicPlantaSourceRecords = range.records;
+  // se a planta aberta no detalhe sumiu do período filtrado (ou o filtro mudou), fecha o painel de ativos
+  if (solicDetailOpenPlanta && !byPlanta.some(g => g.label === solicDetailOpenPlanta)) {
+    document.getElementById("solicSetorDetailPanel").style.display = "none";
+    solicDetailOpenPlanta = null;
+  }
 
   const rangeLabel = (+solicFilterStart === +solicFilterEnd) ? dBR(solicFilterStart) : `${dBR(solicFilterStart)} a ${dBR(solicFilterEnd)}`;
   document.getElementById("solicRangeTag").textContent = `${rangeLabel}`;
@@ -4696,8 +4785,10 @@ function renderSolicitacoes() {
   `;
 
   document.getElementById("solicPlantaQtdTag").textContent = `${byPlanta.length} planta(s)`;
-  renderSolicPlantaQtdChart("solicPlantaQtdChart", byPlanta);
-  renderSolicPlantaPctChart("solicPlantaPctChart", byPlanta);
+  renderSolicPlantaQtdChart("solicPlantaQtdChart", byPlanta, toggleSolicSetorDetail);
+  renderSolicPlantaPctChart("solicPlantaPctChart", byPlanta, toggleSolicSetorDetail);
+  // se o detalhe de ativos já estava aberto, re-renderiza com os dados atualizados do novo período
+  if (solicDetailOpenPlanta) renderSolicSetorDetail(solicDetailOpenPlanta);
 
   solicTableRecords = range.records.slice().sort((a,b) => b.dataAbertura - a.dataAbertura);
   renderSolicTableRows();
