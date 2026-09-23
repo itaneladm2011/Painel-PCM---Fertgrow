@@ -4532,7 +4532,7 @@ function solicEstado(r) {
 function computeSolicByPlanta(records) {
   const byPlanta = {};
   records.forEach(r => {
-    const label = r.filial || "Sem planta";
+    const label = r.setor || "Sem planta";
     if (!byPlanta[label]) byPlanta[label] = { label, total: 0, pendente: 0, atendida: 0, concluida: 0 };
     byPlanta[label][solicEstado(r)]++;
     byPlanta[label].total++;
