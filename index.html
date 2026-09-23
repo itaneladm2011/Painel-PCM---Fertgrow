@@ -219,8 +219,9 @@
 
   .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
   @media (max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr);}}
-  #planoKpiRow, #solicKpiRow{grid-template-columns:repeat(5,1fr);}
-  @media (max-width:900px){#planoKpiRow,#solicKpiRow{grid-template-columns:repeat(2,1fr);}#planoKpiRow .kpi-card:first-child,#solicKpiRow .kpi-card:first-child{grid-column:1 / -1;}}
+  #planoKpiRow{grid-template-columns:repeat(5,1fr);}
+  #solicKpiRow{grid-template-columns:repeat(6,1fr);}
+  @media (max-width:900px){#planoKpiRow,#solicKpiRow{grid-template-columns:repeat(2,1fr);}#planoKpiRow .kpi-card:first-child{grid-column:1 / -1;}}
   .kpi-card{background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
   .kpi-label{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:8px;}
   .kpi-value{font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--text-strong);}
@@ -1116,9 +1117,10 @@
           <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Atendimento por planta <span class="tag">% do total de cada planta</span></div>
           <div class="chart-wrap"><svg id="solicPlantaPctChart" width="100%" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg></div>
           <div class="legend">
-            <span class="legend-item"><span class="legend-swatch" style="background:#948F86"></span>Pendente</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:var(--saldo-neg)"></span>Pendente</span>
             <span class="legend-item"><span class="legend-swatch" style="background:#B08900"></span>Atendida (OS aberta)</span>
             <span class="legend-item"><span class="legend-swatch" style="background:var(--realizado)"></span>Concluída (OS encerrada)</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:#948F86"></span>Arquivada (indevida/desnecessária)</span>
           </div>
           <div class="empty-text" style="text-align:left;margin:10px 0 0;">Clique numa barra (dos dois gráficos acima) para ver os ativos daquela planta/área.</div>
         </div>
@@ -1129,7 +1131,7 @@
           <div class="table-scroll">
             <table>
               <thead>
-                <tr><th style="text-align:left;">Ativo</th><th style="text-align:left;">Total</th><th style="text-align:left;">Pendentes</th><th style="text-align:left;">Atendidas</th><th style="text-align:left;">Concluídas</th></tr>
+                <tr><th style="text-align:left;">Ativo</th><th style="text-align:left;">Total</th><th style="text-align:left;">Pendentes</th><th style="text-align:left;">Atendidas</th><th style="text-align:left;">Concluídas</th><th style="text-align:left;">Arquivadas</th></tr>
               </thead>
               <tbody id="solicSetorDetailTableBody"></tbody>
             </table>
@@ -1142,6 +1144,7 @@
             <button data-status="todas" class="active" type="button">Todas</button>
             <button data-status="atendida" type="button">Atendidas</button>
             <button data-status="pendente" type="button">Pendentes</button>
+            <button data-status="arquivada" type="button">Arquivadas</button>
           </div>
           <div class="table-scroll">
             <table>
@@ -4520,8 +4523,12 @@ function computeSolicRange(records, start, end) {
   const inRange = records.filter(r => r.dataAbertura && dOnly(r.dataAbertura) >= start && dOnly(r.dataAbertura) <= end);
   const total = inRange.length;
   const atendidas = inRange.filter(r => r.idOrdemServico).length;
-  const pendentes = total - atendidas;
+  // arquivadas (planejador identificou como indevida/desnecessária) não contam como pendentes —
+  // senão inflam o indicador de "ainda sem OS aberta" com solicitações que já foram descartadas
+  const arquivadas = inRange.filter(r => r.arquivada && !r.idOrdemServico).length;
+  const pendentes = total - atendidas - arquivadas;
   const pctAtendidas = total > 0 ? (atendidas / total) * 100 : 0;
+  const pctArquivadas = total > 0 ? (arquivadas / total) * 100 : 0;
   const comAtendimento = inRange.filter(r => r.idOrdemServico && r.osDataAbertura);
   const diasParaAtender = comAtendimento.length > 0
     ? comAtendimento.reduce((s, r) => s + diasEntre(r.dataAbertura, r.osDataAbertura), 0) / comAtendimento.length
@@ -4530,24 +4537,25 @@ function computeSolicRange(records, start, end) {
   const diasParaEncerrar = comEncerramento.length > 0
     ? comEncerramento.reduce((s, r) => s + diasEntre(r.dataAbertura, r.osDataEncerramento), 0) / comEncerramento.length
     : null;
-  return { records: inRange, total, atendidas, pendentes, pctAtendidas, diasParaAtender, diasParaEncerrar, countAtendimento: comAtendimento.length, countEncerramento: comEncerramento.length };
+  return { records: inRange, total, atendidas, pendentes, arquivadas, pctAtendidas, pctArquivadas, diasParaAtender, diasParaEncerrar, countAtendimento: comAtendimento.length, countEncerramento: comEncerramento.length };
 }
 
 // semanas nas bordas do per\u00edodo filtrado continuam aparecendo, mas contam s\u00f3 os dias dentro do
 // per\u00edodo \u2014 mesma regra j\u00e1 usada na Evolu\u00e7\u00e3o Semanal da Disponibilidade e na Ader\u00eancia da Programa\u00e7\u00e3o
-// classifica\u00e7\u00e3o em 3 estados: pendente (sem OS) / atendida (OS aberta, ainda n\u00e3o encerrada) /
-// conclu\u00edda (OS encerrada \u2014 atividade conclu\u00edda). "Atendida" sozinho (KPI/tabela) continua contando
-// qualquer solicita\u00e7\u00e3o com OS atrelada; aqui a visualiza\u00e7\u00e3o por planta detalha esse grupo em dois.
+// classifica\u00e7\u00e3o em 4 estados: pendente (sem OS, ainda em aberto) / atendida (OS aberta, ainda n\u00e3o
+// encerrada) / conclu\u00edda (OS encerrada \u2014 atividade conclu\u00edda) / arquivada (o planejador identificou
+// como indevida/desnecess\u00e1ria e arquivou/cancelou \u2014 n\u00e3o conta como pendente, n\u00e3o "ofende" o indicador).
 function solicEstado(r) {
-  if (!r.idOrdemServico) return "pendente";
-  return r.osDataEncerramento ? "concluida" : "atendida";
+  if (r.idOrdemServico) return r.osDataEncerramento ? "concluida" : "atendida";
+  if (r.arquivada) return "arquivada";
+  return "pendente";
 }
 
 function computeSolicGroupBy(records, keyFn, fallbackLabel) {
   const byKey = {};
   records.forEach(r => {
     const label = keyFn(r) || fallbackLabel;
-    if (!byKey[label]) byKey[label] = { label, total: 0, pendente: 0, atendida: 0, concluida: 0 };
+    if (!byKey[label]) byKey[label] = { label, total: 0, pendente: 0, atendida: 0, concluida: 0, arquivada: 0 };
     byKey[label][solicEstado(r)]++;
     byKey[label].total++;
   });
@@ -4589,7 +4597,7 @@ function renderSolicSetorDetail(plantaLabel, scrollToIt) {
   const tbody = document.getElementById("solicSetorDetailTableBody");
   tbody.innerHTML = "";
   if (ativos.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted3);">Nenhum ativo encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted3);">Nenhum ativo encontrado.</td></tr>`;
   } else {
     ativos.forEach(a => {
       const tr = document.createElement("tr");
@@ -4602,6 +4610,7 @@ function renderSolicSetorDetail(plantaLabel, scrollToIt) {
         <td style="text-align:left;">${fmtInt(a.pendente)}</td>
         <td style="text-align:left;">${fmtInt(a.atendida)}</td>
         <td style="text-align:left;">${fmtInt(a.concluida)}</td>
+        <td style="text-align:left;">${fmtInt(a.arquivada)}</td>
       `;
       tr.addEventListener("click", () => toggleSolicAtivoDetailRow(tr, plantaLabel, a.label));
       tbody.appendChild(tr);
@@ -4625,7 +4634,7 @@ function toggleSolicAtivoDetailRow(tr, plantaLabel, ativoLabel) {
   // "corrigir" a estrutura e embaralhar o cabeçalho; esse padrão de linha já é usado nos cartões da Análise de Falhas
   const linhas = itens.map(r => `
     <div class="rca-action-row">
-      <div class="ar-status" style="background:${r.idOrdemServico ? (r.osDataEncerramento ? COLOR_REALIZADO : "#B08900") : COLOR_SALDO_NEG}"></div>
+      <div class="ar-status" style="background:${solicEstadoColor(r)}"></div>
       <div class="ar-text">${esc(r.solicitacao || "—")}<div class="ar-owner">Cód. ${esc(r.codigo ?? "—")} · aberta em ${dBR(r.dataAbertura)} · ${solicSituacaoHtml(r)}</div></div>
     </div>`).join("") || `<div class="a-detail">Nenhuma solicitação encontrada.</div>`;
   row.innerHTML = `
@@ -4653,7 +4662,7 @@ function renderSolicPlantaQtdChart(svgId, groups, onBarClick) {
   const rowH = 30;
   const marginL = M ? 110 : 160, marginR = M ? 40 : 56, marginT = 8, marginB = 8;
   const W = M ? 360 : 700;
-  const list = groups.length ? groups : [{ label: "\u2014", total: 0, pendente: 0, atendida: 0, concluida: 0 }];
+  const list = groups.length ? groups : [{ label: "\u2014", total: 0, pendente: 0, atendida: 0, concluida: 0, arquivada: 0 }];
   const plotW = W - marginL - marginR;
   const plotH = list.length * rowH;
   const H = plotH + marginT + marginB;
@@ -4694,9 +4703,10 @@ function renderSolicPlantaQtdChart(svgId, groups, onBarClick) {
     bar.style.cursor = "pointer";
     bar.addEventListener("mousemove", (evt) => showTooltip(evt, a.label, [
       { key: "Total de solicita\u00e7\u00f5es", val: a.total, color: COLOR_REALIZADO, fmt: fmtInt },
-      { key: "Pendentes", val: a.pendente, color: "#948F86", fmt: fmtInt },
+      { key: "Pendentes", val: a.pendente, color: COLOR_SALDO_NEG, fmt: fmtInt },
       { key: "Atendidas (OS aberta)", val: a.atendida, color: "#B08900", fmt: fmtInt },
       { key: "Conclu\u00eddas (OS encerrada)", val: a.concluida, color: COLOR_REALIZADO, fmt: fmtInt },
+      { key: "Arquivadas", val: a.arquivada, color: "#948F86", fmt: fmtInt },
     ]));
     bar.addEventListener("mouseleave", hideTooltip);
     if (onBarClick) bar.addEventListener("click", () => onBarClick(a.label));
@@ -4720,7 +4730,7 @@ function renderSolicPlantaPctChart(svgId, groups, onBarClick) {
   const rowH = 30;
   const marginL = M ? 110 : 160, marginR = M ? 46 : 64, marginT = 8, marginB = 8;
   const W = M ? 360 : 700;
-  const list = groups.length ? groups : [{ label: "\u2014", total: 0, pendente: 0, atendida: 0, concluida: 0 }];
+  const list = groups.length ? groups : [{ label: "\u2014", total: 0, pendente: 0, atendida: 0, concluida: 0, arquivada: 0 }];
   const plotW = W - marginL - marginR;
   const plotH = list.length * rowH;
   const H = plotH + marginT + marginB;
@@ -4736,15 +4746,16 @@ function renderSolicPlantaPctChart(svgId, groups, onBarClick) {
 
     const total = Math.max(1, a.total);
     let cx = marginL;
-    [["pendente", "#948F86", "Pendente"], ["atendida", "#B08900", "Atendida (OS aberta)"], ["concluida", COLOR_REALIZADO, "Conclu\u00edda (OS encerrada)"]].forEach(([key, color, tipLabel]) => {
+    [["pendente", COLOR_SALDO_NEG, "Pendente"], ["atendida", "#B08900", "Atendida (OS aberta)"], ["concluida", COLOR_REALIZADO, "Conclu\u00edda (OS encerrada)"], ["arquivada", "#948F86", "Arquivada"]].forEach(([key, color, tipLabel]) => {
       const w = (a[key] / total) * plotW;
       if (w > 0) {
         const rect = el("rect", { x: cx, y: gy - barH / 2, width: w, height: barH, fill: color });
         rect.style.cursor = "pointer";
         rect.addEventListener("mousemove", (evt) => showTooltip(evt, a.label, [
-          { key: "Pendente", val: a.pendente, color: "#948F86", fmt: fmtInt },
+          { key: "Pendente", val: a.pendente, color: COLOR_SALDO_NEG, fmt: fmtInt },
           { key: "Atendida (OS aberta)", val: a.atendida, color: "#B08900", fmt: fmtInt },
           { key: "Conclu\u00edda (OS encerrada)", val: a.concluida, color: COLOR_REALIZADO, fmt: fmtInt },
+          { key: "Arquivada", val: a.arquivada, color: "#948F86", fmt: fmtInt },
           { key: "Total", val: a.total, color: "#34302B", fmt: fmtInt },
         ]));
         rect.addEventListener("mouseleave", hideTooltip);
@@ -4804,6 +4815,11 @@ function renderSolicitacoes() {
       <div class="kpi-sub">ainda sem OS aberta</div>
     </div>
     <div class="kpi-card">
+      <div class="kpi-label" style="color:#948F86">Arquivadas</div>
+      <div class="kpi-value">${range.arquivadas}</div>
+      <div class="kpi-sub">${fmtPct(range.pctArquivadas)} do total \u00b7 indevida/desnecess\u00e1ria</div>
+    </div>
+    <div class="kpi-card">
       <div class="kpi-label">Tempo m\u00e9dio de atendimento</div>
       <div class="kpi-value">${range.diasParaAtender === null ? "\u2014" : fmtDaysPlain(range.diasParaAtender)}</div>
       <div class="kpi-sub">${range.countAtendimento} solicita\u00e7\u00e3o(\u00f5es) com OS aberta</div>
@@ -4826,15 +4842,23 @@ function renderSolicitacoes() {
 }
 
 function solicSituacaoHtml(r) {
-  if (!r.idOrdemServico) return `<span style="color:${COLOR_SALDO_NEG};font-weight:600;">Pendente</span>`;
-  return r.osDataEncerramento
-    ? `<span style="color:${COLOR_REALIZADO};font-weight:600;">Atendida \u00b7 OS encerrada</span>`
-    : `<span style="color:${COLOR_REALIZADO};font-weight:600;">Atendida</span>`;
+  if (r.idOrdemServico) {
+    return r.osDataEncerramento
+      ? `<span style="color:${COLOR_REALIZADO};font-weight:600;">Atendida \u00b7 OS encerrada</span>`
+      : `<span style="color:${COLOR_REALIZADO};font-weight:600;">Atendida</span>`;
+  }
+  if (r.arquivada) return `<span style="color:#948F86;font-weight:600;">Arquivada</span>`;
+  return `<span style="color:${COLOR_SALDO_NEG};font-weight:600;">Pendente</span>`;
+}
+function solicEstadoColor(r) {
+  if (r.idOrdemServico) return r.osDataEncerramento ? COLOR_REALIZADO : "#B08900";
+  return r.arquivada ? "#948F86" : COLOR_SALDO_NEG;
 }
 
 function renderSolicTableRows() {
   const filtered = solicTableStatusFilter === "todas" ? solicTableRecords
-    : solicTableRecords.filter(r => (solicTableStatusFilter === "atendida") === !!r.idOrdemServico);
+    : solicTableStatusFilter === "atendida" ? solicTableRecords.filter(r => !!r.idOrdemServico)
+    : solicTableRecords.filter(r => solicEstado(r) === solicTableStatusFilter); // "pendente" ou "arquivada"
   document.getElementById("solicTableTag").textContent = `${filtered.length} de ${solicTableRecords.length} solicita\u00e7\u00e3o(\u00f5es)`;
   const tbody = document.getElementById("solicTableBody");
   tbody.innerHTML = "";
