@@ -814,7 +814,7 @@
       <div id="rcaDashboard" style="display:none;">
 
         <div class="panel">
-          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 21 2 21"/><line x1="12" y1="9" x2="12" y2="14"/><line x1="12" y1="17.5" x2="12" y2="17.5"/></svg>Falhas pendentes de análise <span class="tag" id="rcaPendingTag"></span></div>
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 21 2 21"/><line x1="12" y1="9" x2="12" y2="14"/><line x1="12" y1="17.5" x2="12" y2="17.5"/></svg>Falhas pendentes de análise <span class="tag" id="rcaPendingTag"></span><button type="button" class="btn ghost small" id="btnNovaAnaliseManual" style="margin-left:auto;">+ Nova análise manual</button></div>
           <div class="rca-pending-list" id="rcaPendingList"></div>
         </div>
 
@@ -849,9 +849,13 @@
                 <label for="rcaEquipamento">Equipamento (TAG)</label>
                 <input type="text" id="rcaEquipamento" placeholder="Ex: Posicionador de Bica 01">
               </div>
-              <div class="rca-field">
+              <div class="rca-field" id="rcaTempoParadaField">
                 <label>Data da ocorrência / tempo de parada</label>
                 <input type="text" id="rcaTempoParada" disabled>
+              </div>
+              <div class="rca-field" id="rcaDataManualField" style="display:none;">
+                <label for="rcaDataManual">Data da ocorrência</label>
+                <input type="date" id="rcaDataManual">
               </div>
               <div class="rca-field">
                 <label for="rcaFalhaRecorrente">Falha recorrente?</label>
@@ -1274,6 +1278,7 @@
             <span class="legend-item"><span class="legend-swatch" style="background:var(--realizado)"></span>Concluída no prazo</span>
             <span class="legend-item"><span class="legend-swatch" style="background:var(--saldo-neg)"></span>Atrasada</span>
             <span class="legend-item"><span class="legend-swatch" style="background:var(--tratado)"></span>Programada, ainda no prazo</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:#8FB6DE"></span>Estimativa pela periodicidade</span>
             <span class="legend-item"><span class="legend-swatch" style="background:#E4E1DA"></span>Sem ocorrência prevista</span>
           </div>
         </div>
@@ -2176,6 +2181,12 @@ const RCA_TRIGGER = 3;
 let rcaStore = {};
 let rcaLastLoadedAt = 0;
 
+// registros salvos antes da chave deixar de ser sempre "a data da falha" (análise manual usa uma
+// chave sintética "manual-...") não têm o campo id — preenche a partir da própria chave do dicionário,
+// que é o valor que sempre foi usado como identificador até aqui
+function normalizeRcaStore() {
+  Object.entries(rcaStore).forEach(([key, rec]) => { if (rec && !rec.id) rec.id = key; });
+}
 function loadRcaStore() {
   try {
     const raw = localStorage.getItem(RCA_STORAGE_KEY);
@@ -2185,6 +2196,7 @@ function loadRcaStore() {
   } catch (e) {
     rcaStore = {};
   }
+  normalizeRcaStore();
 }
 async function saveRcaStore() {
   try {
@@ -3403,6 +3415,7 @@ function rcaContextHtml(day) {
 }
 
 let rcaCurrentDateIso = null;
+let rcaCurrentIsManual = false; // true quando a análise aberta não veio de um gatilho de disponibilidade (criada manualmente)
 
 /* ---- Origem da causa raiz (categorias do formulário FIN PCM 0004) ---- */
 const RCA_ORIGEM_CATEGORIAS = [
@@ -3548,24 +3561,12 @@ function collectRcaActions() {
   })).filter(a => a.descricao || a.responsavel);
 }
 
-function openRcaForm(dateIso) {
-  const day = getTriggeredDays().find(d => d.dateIso === dateIso);
-  if (!day) return;
-  renderRcaOrigemGrid();
-  rcaCurrentDateIso = dateIso;
-  document.getElementById("rcaFormPanel").style.display = "";
-  document.getElementById("rcaContextBox").innerHTML = rcaContextHtml(day);
-  const stored = rcaStore[dateIso];
-  const existing = stored && !stored.dispensada ? stored : null; // registro de dispensa não conta como análise salva
-  document.getElementById("rcaFormTag").textContent = existing ? "editando análise salva" : (stored ? "refazendo análise dispensada" : "nova análise");
-  document.getElementById("rcaDispensaBox").style.display = stored ? "none" : "";
-  resetRcaDispensaBox();
-
-  const equipSuggestion = Array.from(new Set(day.records.map(r => r.falha || r.descricao).filter(Boolean))).join(", ");
+// preenchimento dos campos que existem tanto na análise vinda de gatilho quanto na manual — o que
+// muda entre os dois modos (contexto, campo de data, caixa de dispensa) fica em cada função chamadora
+function fillRcaFormCommon(existing, equipSuggestion) {
   document.getElementById("rcaNumeroAF").value = existing ? (existing.numeroAF || "") : `AF-${String(Object.values(rcaStore).filter(r => !r.dispensada).length + 1).padStart(3, "0")}`;
   document.getElementById("rcaResponsavel").value = existing ? existing.responsavelAnalise : "";
-  document.getElementById("rcaEquipamento").value = existing ? (existing.equipamentoTag || "") : equipSuggestion;
-  document.getElementById("rcaTempoParada").value = `${dBR(day.date)} — ${fmtHM(day.hours)}`;
+  document.getElementById("rcaEquipamento").value = existing ? (existing.equipamentoTag || "") : (equipSuggestion || "");
   const recorrente = existing ? (existing.falhaRecorrente || "nao") : "nao";
   document.querySelectorAll('input[name="rcaFalhaRecorrente"]').forEach(r => { r.checked = r.value === recorrente; });
   document.getElementById("rcaAfsAnterioresField").style.display = recorrente === "sim" ? "" : "none";
@@ -3593,7 +3594,53 @@ function openRcaForm(dateIso) {
   document.getElementById("rcaOrigemOutrosQual").value = existing ? (existing.origemOutrosQual || "") : "";
 
   renderRcaActionsRows(existing);
+}
+
+function openRcaForm(dateIso) {
+  const day = getTriggeredDays().find(d => d.dateIso === dateIso);
+  if (!day) return;
+  renderRcaOrigemGrid();
+  rcaCurrentIsManual = false;
+  rcaCurrentDateIso = dateIso;
+  document.getElementById("rcaFormPanel").style.display = "";
+  document.getElementById("rcaContextBox").innerHTML = rcaContextHtml(day);
+  const stored = rcaStore[dateIso];
+  const existing = stored && !stored.dispensada ? stored : null; // registro de dispensa não conta como análise salva
+  document.getElementById("rcaFormTag").textContent = existing ? "editando análise salva" : (stored ? "refazendo análise dispensada" : "nova análise");
+  document.getElementById("rcaDispensaBox").style.display = stored ? "none" : "";
+  resetRcaDispensaBox();
+
+  document.getElementById("rcaTempoParadaField").style.display = "";
+  document.getElementById("rcaDataManualField").style.display = "none";
+  document.getElementById("rcaTempoParada").value = `${dBR(day.date)} — ${fmtHM(day.hours)}`;
+
+  const equipSuggestion = Array.from(new Set(day.records.map(r => r.falha || r.descricao).filter(Boolean))).join(", ");
+  fillRcaFormCommon(existing, equipSuggestion);
+
   document.querySelectorAll("#rcaPendingList .rca-pending-item").forEach(el => el.classList.toggle("selected", el.dataset.dateIso === dateIso));
+  document.getElementById("rcaFormPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// análise criada diretamente pelo usuário, sem vir de um dia com gatilho de disponibilidade —
+// existingId é a chave no rcaStore (para editar uma manual já salva); omitido, cria uma nova
+function openRcaFormManual(existingId) {
+  renderRcaOrigemGrid();
+  rcaCurrentIsManual = true;
+  rcaCurrentDateIso = existingId || `manual-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  document.getElementById("rcaFormPanel").style.display = "";
+  const stored = existingId ? rcaStore[existingId] : null;
+  const existing = stored && !stored.dispensada ? stored : null;
+  document.getElementById("rcaContextBox").innerHTML = `<b>Análise manual</b> — registrada diretamente, sem vínculo com um gatilho automático de disponibilidade.`;
+  document.getElementById("rcaFormTag").textContent = existing ? "editando análise manual" : "nova análise manual";
+  document.getElementById("rcaDispensaBox").style.display = "none"; // dispensa só faz sentido pra gatilho automático
+
+  document.getElementById("rcaTempoParadaField").style.display = "none";
+  document.getElementById("rcaDataManualField").style.display = "";
+  document.getElementById("rcaDataManual").value = existing ? existing.dateIso : dIso(new Date());
+
+  fillRcaFormCommon(existing);
+
+  document.querySelectorAll("#rcaPendingList .rca-pending-item").forEach(el => el.classList.remove("selected"));
   document.getElementById("rcaFormPanel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -3634,7 +3681,7 @@ function statusLabel(status) {
    feito só na aba Plano de Ação e gravado em registros próprios ("rca_update"), dentro da mesma chave do plano.
    O registro da análise em si nunca é alterado por esse acompanhamento. */
 const PLANO_UPDATE_KIND = "rca_update";
-function rcaActionId(rca, a, idx) { return a.id || `rca-${rca.dateIso}-${idx}`; }
+function rcaActionId(rca, a, idx) { return a.id || `rca-${rca.id || rca.dateIso}-${idx}`; }
 function planoUpdateFor(actionId) { return manualActions.find(x => x.kind === PLANO_UPDATE_KIND && x.id === actionId) || null; }
 function effectiveRcaAction(rca, a, idx) {
   const u = planoUpdateFor(rcaActionId(rca, a, idx));
@@ -3683,10 +3730,11 @@ function renderRcaCompletedList() {
       ? `<div class="rca-summary-tags">${rca.origemCausaRaiz.map(o => `<span class="rca-summary-tag">${esc(o === "Outros. Qual?" && rca.origemOutrosQual ? "Outros: " + rca.origemOutrosQual : o)}</span>`).join("")}</div>`
       : `<div class="a-detail">—</div>`;
 
+    const metaLine = rca.manual ? "análise manual" : `${fmtHM(rca.totalHours)} de falha (${rca.failureCount} registro(s))`;
     card.innerHTML = `
       <div class="rca-summary-head">
         <div>
-          <div class="rca-summary-title">${esc(rca.numeroAF || "AF")} · ${dBR(dParseIso(rca.dateIso))} — ${fmtHM(rca.totalHours)} de falha (${rca.failureCount} registro(s))</div>
+          <div class="rca-summary-title">${esc(rca.numeroAF || "AF")} · ${dBR(dParseIso(rca.dateIso))} — ${metaLine}</div>
           <div class="rca-summary-sub">${esc(rca.equipamentoTag || "equipamento não informado")} · análise por ${esc(rca.responsavelAnalise || "—")} · salva em ${fmtDateTime(rca.updatedAt)}${rca.falhaRecorrente==="sim" ? " · falha recorrente" : ""}</div>
         </div>
         <div style="display:flex;gap:8px;flex:0 0 auto;">
@@ -3728,9 +3776,9 @@ function renderRcaCompletedList() {
         ${actionsHtml}
       </div>
     `;
-    card.querySelector(".rca-edit-btn").addEventListener("click", () => openRcaForm(rca.dateIso));
-    card.querySelector(".rca-delete-btn").addEventListener("click", () => deleteRcaAnalysis(rca.dateIso));
-    card.querySelector(".rca-print-btn").addEventListener("click", () => printRcaAnalysis(rca.dateIso));
+    card.querySelector(".rca-edit-btn").addEventListener("click", () => rca.manual ? openRcaFormManual(rca.id) : openRcaForm(rca.id));
+    card.querySelector(".rca-delete-btn").addEventListener("click", () => deleteRcaAnalysis(rca.id));
+    card.querySelector(".rca-print-btn").addEventListener("click", () => printRcaAnalysis(rca.id));
     list.appendChild(card);
   });
 }
@@ -3808,6 +3856,7 @@ document.getElementById("btnConfirmDispensa").addEventListener("click", async ()
   const por = currentUser.nome || null;
   const now = Date.now();
   rcaStore[dateIso] = {
+    id: dateIso,
     dateIso,
     dispensada: true,
     justificativaDispensa: justificativa,
@@ -3873,16 +3922,18 @@ function revertRcaDispensa(dateIso) {
   updateNavPlanoBadge();
 }
 
-function deleteRcaAnalysis(dateIso) {
-  const rca = rcaStore[dateIso];
+function deleteRcaAnalysis(key) {
+  const rca = rcaStore[key];
   if (!rca) return;
-  const confirmed = confirm(`Tem certeza que deseja excluir a análise de causa raiz de ${dBR(dParseIso(dateIso))} (${rca.numeroAF || "AF"})?\n\nEssa ação não pode ser desfeita e o alerta dessa falha voltará a aparecer como pendente no painel de Disponibilidade.`);
+  const consequencia = rca.manual ? "" : " e o alerta dessa falha voltará a aparecer como pendente no painel de Disponibilidade";
+  const confirmed = confirm(`Tem certeza que deseja excluir a análise de causa raiz de ${dBR(dParseIso(rca.dateIso))} (${rca.numeroAF || "AF"})?\n\nEssa ação não pode ser desfeita${consequencia}.`);
   if (!confirmed) return;
-  delete rcaStore[dateIso];
+  delete rcaStore[key];
   saveRcaStore();
-  if (rcaCurrentDateIso === dateIso) {
+  if (rcaCurrentDateIso === key) {
     document.getElementById("rcaFormPanel").style.display = "none";
     rcaCurrentDateIso = null;
+    rcaCurrentIsManual = false;
   }
   renderAnaliseFalhas();
   renderRcaAlertInDisp();
@@ -3934,7 +3985,7 @@ function buildRcaPrintHtml(rca) {
         <tr><td colspan="2"><span class="rp-label">Descrição da falha</span>${esc(rca.descricaoFalha || "—")}</td></tr>
         <tr>
           <td><span class="rp-label">Data da Ocorrência</span>${dBR(dParseIso(rca.dateIso))}</td>
-          <td><span class="rp-label">Equipamento (TAG) / Tempo total de parada</span>${esc(rca.equipamentoTag || "—")} — ${fmtHM(rca.totalHours)}</td>
+          <td><span class="rp-label">Equipamento (TAG) / Tempo total de parada</span>${esc(rca.equipamentoTag || "—")} — ${rca.manual ? "análise manual" : fmtHM(rca.totalHours)}</td>
         </tr>
         <tr>
           <td><span class="rp-label">Falha recorrente</span>${rca.falhaRecorrente === "sim" ? "Sim" : "Não"}</td>
@@ -3995,17 +4046,28 @@ function renderAnaliseFalhas() {
 document.getElementById("rcaForm").addEventListener("submit", (e) => {
   e.preventDefault();
   if (!rcaCurrentDateIso) return;
-  const day = getTriggeredDays().find(d => d.dateIso === rcaCurrentDateIso);
-  if (!day) return;
+  let day = null;
+  let ocorrenciaDateIso = rcaCurrentDateIso;
+  if (!rcaCurrentIsManual) {
+    day = getTriggeredDays().find(d => d.dateIso === rcaCurrentDateIso);
+    if (!day) return;
+  } else {
+    const manualDateVal = document.getElementById("rcaDataManual").value;
+    if (!manualDateVal) { alert("Informe a data da ocorrência."); return; }
+    ocorrenciaDateIso = manualDateVal;
+  }
   const causaRaiz = document.getElementById("rcaCausaRaiz").value.trim();
   const acoes = collectRcaActions();
   if (!causaRaiz) { alert("Preencha a causa raiz identificada antes de salvar."); return; }
   if (acoes.length === 0) { alert("Adicione ao menos uma ação com descrição ou responsável."); return; }
-  const existing = rcaStore[rcaCurrentDateIso];
-  rcaStore[rcaCurrentDateIso] = {
-    dateIso: rcaCurrentDateIso,
-    totalHours: day.hours,
-    failureCount: day.count,
+  const key = rcaCurrentDateIso;
+  const existing = rcaStore[key];
+  rcaStore[key] = {
+    id: key,
+    dateIso: ocorrenciaDateIso,
+    manual: rcaCurrentIsManual,
+    totalHours: day ? day.hours : null,
+    failureCount: day ? day.count : null,
     numeroAF: document.getElementById("rcaNumeroAF").value.trim(),
     responsavelAnalise: document.getElementById("rcaResponsavel").value.trim(),
     equipamentoTag: document.getElementById("rcaEquipamento").value.trim(),
@@ -4025,6 +4087,7 @@ document.getElementById("rcaForm").addEventListener("submit", (e) => {
   saveRcaStore();
   document.getElementById("rcaFormPanel").style.display = "none";
   rcaCurrentDateIso = null;
+  rcaCurrentIsManual = false;
   renderAnaliseFalhas();
   renderRcaAlertInDisp();
   updateNavPlanoBadge();
@@ -4032,9 +4095,11 @@ document.getElementById("rcaForm").addEventListener("submit", (e) => {
 document.getElementById("btnAddAction").addEventListener("click", () => addRcaActionRow());
 document.getElementById("btnAddPerson").addEventListener("click", () => addRcaPersonRow());
 document.getElementById("btnAddCausaPorques").addEventListener("click", () => addRcaCausaPorquesBlock());
+document.getElementById("btnNovaAnaliseManual").addEventListener("click", () => openRcaFormManual());
 document.getElementById("btnCancelRca").addEventListener("click", () => {
   document.getElementById("rcaFormPanel").style.display = "none";
   rcaCurrentDateIso = null;
+  rcaCurrentIsManual = false;
   document.querySelectorAll("#rcaPendingList .rca-pending-item").forEach(el => el.classList.remove("selected"));
 });
 
@@ -5131,7 +5196,10 @@ function computePreventByEquipamento(records, weeks) {
       const nesta = p.ocorrencias.filter(o => o.dataExecucaoPrevista && dOnly(o.dataExecucaoPrevista) >= w.start && dOnly(o.dataExecucaoPrevista) <= w.end);
       if (nesta.length === 0) return { status: "vazio", ocorrencias: [] };
       const estados = nesta.map(preventOcorrenciaEstado);
-      const pior = estados.includes("atrasada") ? "atrasada" : estados.includes("pendente") ? "pendente" : "concluida";
+      let pior = estados.includes("atrasada") ? "atrasada" : estados.includes("pendente") ? "pendente" : "concluida";
+      // pendente só com ocorrências PROJETADAS (nenhuma delas ainda gerada pelo Melvin) vira um status
+      // próprio — é uma estimativa calculada pela periodicidade do plano, não uma data confirmada
+      if (pior === "pendente" && nesta.every(o => o.projetado)) pior = "estimado";
       return { status: pior, ocorrencias: nesta };
     });
     p.total = p.ocorrencias.length;
@@ -5149,8 +5217,8 @@ function computePreventByEquipamento(records, weeks) {
   return equipamentos.sort((a, b) => a.label.localeCompare(b.label));
 }
 
-const PREVENT_STATUS_COLOR = { concluida: COLOR_REALIZADO, atrasada: COLOR_SALDO_NEG, pendente: "#1F5FA8", vazio: "#E4E1DA" };
-const PREVENT_STATUS_LABEL = { concluida: "Conclu\u00edda no prazo", atrasada: "Atrasada", pendente: "Programada, ainda no prazo", vazio: "Sem ocorr\u00eancia prevista" };
+const PREVENT_STATUS_COLOR = { concluida: COLOR_REALIZADO, atrasada: COLOR_SALDO_NEG, pendente: "#1F5FA8", estimado: "#8FB6DE", vazio: "#E4E1DA" };
+const PREVENT_STATUS_LABEL = { concluida: "Conclu\u00edda no prazo", atrasada: "Atrasada", pendente: "Programada, ainda no prazo", estimado: "Estimativa pela periodicidade do plano", vazio: "Sem ocorr\u00eancia prevista" };
 
 /* ============ gr\u00e1fico: mapa de 52 semanas (uma linha por equipamento, uma coluna por semana) ============ */
 function renderPreventMapaChart(svgId, planos, weeks) {
@@ -5221,7 +5289,7 @@ function renderPreventMapaChart(svgId, planos, weeks) {
         const w = weeks[wi];
         rect.addEventListener("mousemove", (evt) => showTooltip(evt, `${p.label} \u00b7 SEM ${weekNumberSunday(w.start)} (${dBR(w.start)} a ${dBR(w.end)})`, [
           { key: "Situa\u00e7\u00e3o", val: PREVENT_STATUS_LABEL[c.status], color: PREVENT_STATUS_COLOR[c.status], fmt: (v) => esc(v) },
-          ...c.ocorrencias.map(o => ({ key: o.descricaoFmp || o.tagFmp || "Plano", val: `${o.osDataEncerramento ? `conclu\u00edda em ${dBR(o.osDataEncerramento)}` : `previs\u00e3o: ${dBR(o.dataExecucaoPrevista)}`}${o.codOrdem ? ` \u00b7 OS ${o.codOrdem}` : " \u00b7 sem OS gerada"}`, color: "#948F86", fmt: (v) => esc(v) })),
+          ...c.ocorrencias.map(o => ({ key: o.descricaoFmp || o.tagFmp || "Plano", val: `${o.osDataEncerramento ? `conclu\u00edda em ${dBR(o.osDataEncerramento)}` : `previs\u00e3o: ${dBR(o.dataExecucaoPrevista)}`}${o.codOrdem ? ` \u00b7 OS ${o.codOrdem}` : (o.projetado ? " \u00b7 estimativa (periodicidade)" : " \u00b7 sem OS gerada")}`, color: "#948F86", fmt: (v) => esc(v) })),
         ]));
         rect.addEventListener("mouseleave", hideTooltip);
       }
@@ -5931,6 +5999,7 @@ async function syncFromCloud() {
         document.getElementById("btnResetProg").style.display = "inline-block";
       } else if (row.key === RCA_STORAGE_KEY) {
         rcaStore = row.data;
+        normalizeRcaStore();
         rcaLastLoadedAt = cloudTs;
         localStorage.setItem(RCA_STORAGE_KEY, JSON.stringify(rcaStore));
         localStorage.setItem(RCA_STORAGE_META_KEY, JSON.stringify({ updatedAt: cloudTs }));
