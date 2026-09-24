@@ -508,6 +508,10 @@
           <span>Custos — FertStrategy</span>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;opacity:.75;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
+        <button class="primary-nav-item" id="navPreventivas" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="2.2" height="2.2"/><rect x="10" y="13" width="2.2" height="2.2"/><rect x="14" y="13" width="2.2" height="2.2"/></svg>
+          <span>Mapa de 52 Semanas</span>
+        </button>
         <button class="primary-nav-item" id="navDisponibilidade" type="button">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
           <span>Indicadores de Disponibilidade</span>
@@ -1244,6 +1248,42 @@
       </div>
     </div>
 
+    <div id="panelPreventivas" style="display:none;">
+      <div class="panel empty-panel" id="preventEmptyState">
+        <div class="empty-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+        </div>
+        <div class="panel-title" style="justify-content:center;">Mapa de 52 Semanas</div>
+        <p class="empty-text">Assim que os dados de preventivas chegarem do sistema Melvin, o mapa de aderência por plano aparece aqui.</p>
+      </div>
+
+      <div id="preventDashboard" style="display:none;">
+        <div class="panel no-collapse">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Mapa de aderência às preventivas <span class="tag" id="preventCycleTag"></span></div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <input type="text" id="preventFilterInput" placeholder="Filtrar por plano ou equipamento..." style="flex:1 1 220px;min-width:180px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:#FFFFFF;border:1px solid var(--panel-border);border-radius:7px;padding:8px 12px;">
+          </div>
+        </div>
+
+        <div class="kpi-row" id="preventKpiRow"></div>
+
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Aderência por plano preventivo <span class="tag" id="preventPlanosTag"></span></div>
+          <div class="chart-wrap"><svg id="preventMapaChart" width="100%" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet"></svg></div>
+          <div class="legend">
+            <span class="legend-item"><span class="legend-swatch" style="background:var(--realizado)"></span>Concluída no prazo</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:var(--saldo-neg)"></span>Atrasada</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:var(--tratado)"></span>Programada, ainda no prazo</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:#E4E1DA"></span>Sem ocorrência prevista</span>
+          </div>
+        </div>
+      </div>
+      <div class="disp-source-footer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
+        Dados atualizados automaticamente a partir do sistema Melvin, a cada 1 hora.
+      </div>
+    </div>
+
     <footer>DADOS — CONTROLE ORÇADO × REALIZADO · 502 · CICLO 26/27</footer>
       </div>
     </div>
@@ -1273,6 +1313,10 @@
       <button class="mobile-tab-item" id="navSolicitacoesM" type="button">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
         <span>Solicit.</span>
+      </button>
+      <button class="mobile-tab-item" id="navPreventivasM" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="2.2" height="2.2"/><rect x="10" y="13" width="2.2" height="2.2"/><rect x="14" y="13" width="2.2" height="2.2"/></svg>
+        <span>52 Sem.</span>
       </button>
     </nav>
   </div>
@@ -1307,6 +1351,7 @@ const CLOUD_SYNC_KEYS = [
   "painelProgramacao_data_v1",
   "painelPlanoAcaoManual_v1",
   "painelSolicitacoes_data_v1",
+  "painelPreventivas_data_v1",
 ];
 function setCloudStatus(msg, cls) {
   const el = document.getElementById("cloudSyncStatus");
@@ -2455,6 +2500,31 @@ function loadProgFromStorage() {
 function clearProgStorage() {
   localStorage.removeItem(PROG_STORAGE_KEY);
   localStorage.removeItem(PROG_STORAGE_META_KEY);
+}
+
+/* ============ Mapa de 52 Semanas (preventivas) — 100% via API do Melvin (sem upload) ============ */
+const PREVENT_STORAGE_KEY = "painelPreventivas_data_v1";
+const PREVENT_STORAGE_META_KEY = "painelPreventivas_meta_v1";
+let preventivasData = null;
+
+function parsePreventDate(v) { return v ? new Date(v) : null; }
+function loadPreventFromStorage() {
+  try {
+    const raw = localStorage.getItem(PREVENT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const records = parsed.records.map(r => ({
+      ...r,
+      dataExecucaoPrevista: parsePreventDate(r.dataExecucaoPrevista),
+      osDataAbertura: parsePreventDate(r.osDataAbertura),
+      osDataEncerramento: parsePreventDate(r.osDataEncerramento),
+    }));
+    const metaRaw = localStorage.getItem(PREVENT_STORAGE_META_KEY);
+    const meta = metaRaw ? JSON.parse(metaRaw) : null;
+    return { data: { records }, meta };
+  } catch (e) {
+    return null;
+  }
 }
 
 /* ============ Solicitações de Serviço — 100% via API do Melvin (sem upload) ============ */
@@ -5015,6 +5085,193 @@ document.getElementById("solicDateEnd").addEventListener("change", (e) => {
   renderSolicitacoes();
 });
 
+/* ============ Mapa de 52 Semanas \u2014 c\u00e1lculo e render ============
+   Uma ocorr\u00eancia \u00e9: conclu\u00edda (OS encerrada) / atrasada (prazo j\u00e1 passou sem encerrar) /
+   pendente (ainda dentro do prazo \u2014 mesma premissa j\u00e1 usada em Programa\u00e7\u00e3o: "hoje" ainda n\u00e3o \u00e9 atraso). */
+function preventOcorrenciaEstado(o) {
+  if (o.osDataEncerramento) return "concluida";
+  if (!o.dataExecucaoPrevista) return "pendente";
+  return dOnly(o.dataExecucaoPrevista) < dOnly(new Date()) ? "atrasada" : "pendente";
+}
+
+// semanas do mapa: da primeira ocorr\u00eancia conhecida at\u00e9 hoje (nunca mostra semanas futuras \u2014
+// ainda n\u00e3o fizeram sentido de "ader\u00eancia"), sempre come\u00e7ando num domingo, igual ao resto do painel
+function computePreventWeeks(records) {
+  const today = dOnly(new Date());
+  let minDate = null;
+  records.forEach(r => {
+    if (!r.dataExecucaoPrevista) return;
+    const d = dOnly(r.dataExecucaoPrevista);
+    if (!minDate || d < minDate) minDate = d;
+  });
+  if (!minDate) return [];
+  const firstWeekStart = dWeekStartSunday(minDate);
+  const weeks = [];
+  for (let ws = firstWeekStart; ws <= today; ws = dAdd(ws, 7)) {
+    weeks.push({ start: ws, end: dAdd(ws, 6) });
+  }
+  return weeks;
+}
+
+// agrupa por plano+equipamento (uma FMP pode se aplicar a v\u00e1rios equipamentos, cada um com sua
+// pr\u00f3pria agenda de gera\u00e7\u00e3o) e monta a c\u00e9lula de cada semana
+function computePreventByPlano(records, weeks) {
+  const byKey = {};
+  records.forEach(r => {
+    const key = (r.idFmp || "semfmp") + "|" + (r.idEquipamento || "semequip");
+    if (!byKey[key]) byKey[key] = { key, tagFmp: r.tagFmp || r.descricaoFmp || "Plano sem nome", equipamentoTag: "", ocorrencias: [] };
+    if (!byKey[key].equipamentoTag && r.equipamentoTag) byKey[key].equipamentoTag = r.equipamentoTag;
+    byKey[key].ocorrencias.push(r);
+  });
+  const planos = Object.values(byKey);
+  planos.forEach(p => {
+    p.label = p.equipamentoTag ? `${p.tagFmp} \u2014 ${p.equipamentoTag}` : p.tagFmp;
+    p.cells = weeks.map(w => {
+      const nesta = p.ocorrencias.filter(o => o.dataExecucaoPrevista && dOnly(o.dataExecucaoPrevista) >= w.start && dOnly(o.dataExecucaoPrevista) <= w.end);
+      if (nesta.length === 0) return { status: "vazio", ocorrencias: [] };
+      const estados = nesta.map(preventOcorrenciaEstado);
+      const pior = estados.includes("atrasada") ? "atrasada" : estados.includes("pendente") ? "pendente" : "concluida";
+      return { status: pior, ocorrencias: nesta };
+    });
+    p.total = p.ocorrencias.length;
+    p.concluidas = p.ocorrencias.filter(o => preventOcorrenciaEstado(o) === "concluida").length;
+    p.atrasadas = p.ocorrencias.filter(o => preventOcorrenciaEstado(o) === "atrasada").length;
+    const vencidas = p.concluidas + p.atrasadas;
+    p.pctAderencia = vencidas > 0 ? (p.concluidas / vencidas) * 100 : null;
+  });
+  return planos.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+const PREVENT_STATUS_COLOR = { concluida: COLOR_REALIZADO, atrasada: COLOR_SALDO_NEG, pendente: "#1F5FA8", vazio: "#E4E1DA" };
+const PREVENT_STATUS_LABEL = { concluida: "Conclu\u00edda no prazo", atrasada: "Atrasada", pendente: "Programada, ainda no prazo", vazio: "Sem ocorr\u00eancia prevista" };
+
+/* ============ gr\u00e1fico: mapa de 52 semanas (uma linha por plano/equipamento, uma coluna por semana) ============ */
+function renderPreventMapaChart(svgId, planos, weeks) {
+  const svg = document.getElementById(svgId);
+  svg.innerHTML = "";
+  const M = isMobileView();
+  const rowH = 22, cellW = M ? 11 : 14;
+  const marginL = M ? 150 : 230, marginR = 14, marginT = 22, marginB = 10;
+  const n = weeks.length || 1;
+  const plotW = cellW * n;
+  const W = marginL + plotW + marginR;
+  const plotH = Math.max(1, planos.length) * rowH;
+  const H = marginT + plotH + marginB;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.style.width = "100%"; svg.style.minWidth = `${Math.max(W, M ? 400 : 900)}px`;
+
+  if (planos.length === 0) {
+    const t = el("text", { x: W / 2, y: H / 2, "text-anchor": "middle", "font-size": 12, fill: "#948F86", "font-family": "Inter,sans-serif" });
+    t.textContent = "Nenhum plano encontrado para esse filtro.";
+    svg.appendChild(t);
+    return;
+  }
+
+  // separador e r\u00f3tulo de m\u00eas (mesmo padr\u00e3o j\u00e1 usado no gr\u00e1fico di\u00e1rio "Tudo" da Disponibilidade)
+  const MESES = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+  let lastMonth = -1, lastLabelX = -Infinity;
+  weeks.forEach((w, i) => {
+    const m = w.start.getMonth();
+    if (m !== lastMonth) {
+      const x = marginL + i * cellW;
+      if (i > 0) svg.appendChild(el("line", { x1: x, y1: marginT - 4, x2: x, y2: marginT + plotH, stroke: "#E4E1DA", "stroke-width": 1, "stroke-dasharray": "2 3" }));
+      // com poucas semanas, meses seguidos ficam próximos demais e o texto colide (ex.: "JULAGO") —
+      // só escreve o rótulo se sobrar espaço desde o último escrito; a linha separadora sempre aparece
+      if (x - lastLabelX >= 26) {
+        const t = el("text", { x: x + 3, y: marginT - 8, "text-anchor": "start", "font-size": 8.5, "font-weight": 700, fill: "#6E6A63", "font-family": "'IBM Plex Mono',monospace" });
+        t.textContent = MESES[m];
+        svg.appendChild(t);
+        lastLabelX = x;
+      }
+      lastMonth = m;
+    }
+  });
+
+  planos.forEach((p, i) => {
+    const gy = marginT + i * rowH;
+    const label = el("text", { x: marginL - 10, y: gy + rowH / 2 + 3.5, "text-anchor": "end", "font-size": 9.5, fill: "#34302B", "font-weight": 600, "font-family": "'IBM Plex Mono',monospace" });
+    const maxChars = Math.floor((marginL - 14) / 5.6);
+    label.textContent = p.label.length > maxChars ? p.label.slice(0, maxChars - 1) + "\u2026" : p.label;
+    const titleEl = document.createElementNS(SVGNS, "title");
+    titleEl.textContent = p.label;
+    label.appendChild(titleEl);
+    svg.appendChild(label);
+
+    p.cells.forEach((c, wi) => {
+      const gx = marginL + wi * cellW;
+      const rect = el("rect", { x: gx + 1, y: gy + 2, width: cellW - 2, height: rowH - 4, rx: 2, fill: PREVENT_STATUS_COLOR[c.status] });
+      if (c.status !== "vazio") {
+        rect.style.cursor = "pointer";
+        const w = weeks[wi];
+        rect.addEventListener("mousemove", (evt) => showTooltip(evt, `${p.label} \u00b7 SEM ${weekNumberSunday(w.start)}`, [
+          { key: "Situa\u00e7\u00e3o", val: PREVENT_STATUS_LABEL[c.status], color: PREVENT_STATUS_COLOR[c.status], fmt: (v) => esc(v) },
+          ...c.ocorrencias.map(o => ({ key: o.codOrdem ? `OS ${o.codOrdem}` : "Sem OS gerada", val: o.osDataEncerramento ? `encerrada em ${dBR(o.osDataEncerramento)}` : `prevista para ${dBR(o.dataExecucaoPrevista)}`, color: "#948F86", fmt: (v) => esc(v) })),
+        ]));
+        rect.addEventListener("mouseleave", hideTooltip);
+      }
+      svg.appendChild(rect);
+    });
+  });
+
+  svg.appendChild(el("line", { x1: marginL, y1: marginT, x2: marginL, y2: marginT + plotH, stroke: "#D6D2C9" }));
+}
+
+let preventPlanosAll = [];
+let preventFilterText = "";
+
+function renderPreventivas() {
+  if (!preventivasData) return;
+  const weeks = computePreventWeeks(preventivasData.records);
+  const planos = computePreventByPlano(preventivasData.records, weeks);
+  preventPlanosAll = planos;
+
+  const rangeLabel = weeks.length ? `${dBR(weeks[0].start)} a ${dBR(weeks[weeks.length - 1].end)} \u00b7 ${weeks.length} semana(s)` : "sem dados ainda";
+  document.getElementById("preventCycleTag").textContent = rangeLabel;
+
+  const totalOcorrencias = planos.reduce((s, p) => s + p.total, 0);
+  const totalConcluidas = planos.reduce((s, p) => s + p.concluidas, 0);
+  const totalAtrasadas = planos.reduce((s, p) => s + p.atrasadas, 0);
+  const totalVencidas = totalConcluidas + totalAtrasadas;
+  const aderenciaGeral = totalVencidas > 0 ? (totalConcluidas / totalVencidas) * 100 : null;
+
+  document.getElementById("preventKpiRow").innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Planos monitorados</div>
+      <div class="kpi-value">${planos.length}</div>
+      <div class="kpi-sub">plano \u00d7 equipamento, no ciclo</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_REALIZADO}">Ader\u00eancia geral</div>
+      <div class="kpi-value">${aderenciaGeral === null ? "\u2014" : fmtPct(aderenciaGeral)}</div>
+      <div class="kpi-sub">${totalConcluidas} de ${totalVencidas} ocorr\u00eancia(s) j\u00e1 vencida(s)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Atrasadas agora</div>
+      <div class="kpi-value">${totalAtrasadas}</div>
+      <div class="kpi-sub">ocorr\u00eancias vencidas sem OS encerrada</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Ocorr\u00eancias no ciclo</div>
+      <div class="kpi-value">${totalOcorrencias}</div>
+      <div class="kpi-sub">previstas desde o in\u00edcio do ciclo</div>
+    </div>
+  `;
+
+  renderPreventFiltered();
+}
+
+function renderPreventFiltered() {
+  const weeks = computePreventWeeks(preventivasData ? preventivasData.records : []);
+  const termo = preventFilterText.trim().toLowerCase();
+  const filtrados = termo ? preventPlanosAll.filter(p => p.label.toLowerCase().includes(termo)) : preventPlanosAll;
+  document.getElementById("preventPlanosTag").textContent = `${filtrados.length} de ${preventPlanosAll.length} plano(s)`;
+  renderPreventMapaChart("preventMapaChart", filtrados, weeks);
+}
+document.getElementById("preventFilterInput").addEventListener("input", (e) => {
+  preventFilterText = e.target.value;
+  renderPreventFiltered();
+});
+
 /* ============ Plano de A\u00e7\u00e3o \u2014 armazenamento e modelo unificado ============ */
 const PLANO_MANUAL_STORAGE_KEY = "painelPlanoAcaoManual_v1";
 const PLANO_MANUAL_STORAGE_META_KEY = "painelPlanoAcaoManual_v1_meta";
@@ -5439,18 +5696,21 @@ function switchApp(name) {
   document.getElementById("panelProgramacao").style.display = name === "programacao" ? "" : "none";
   document.getElementById("panelPlanoAcao").style.display = name === "planoacao" ? "" : "none";
   document.getElementById("panelSolicitacoes").style.display = name === "solicitacoes" ? "" : "none";
+  document.getElementById("panelPreventivas").style.display = name === "preventivas" ? "" : "none";
   document.getElementById("navCustos").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidade").classList.toggle("active", name === "disponibilidade");
   document.getElementById("navAnaliseFalhas").classList.toggle("active", name === "analise");
   document.getElementById("navProgramacao").classList.toggle("active", name === "programacao");
   document.getElementById("navPlanoAcao").classList.toggle("active", name === "planoacao");
   document.getElementById("navSolicitacoes").classList.toggle("active", name === "solicitacoes");
+  document.getElementById("navPreventivas").classList.toggle("active", name === "preventivas");
   document.getElementById("navCustosM").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidadeM").classList.toggle("active", name === "disponibilidade");
   document.getElementById("navAnaliseFalhasM").classList.toggle("active", name === "analise");
   document.getElementById("navProgramacaoM").classList.toggle("active", name === "programacao");
   document.getElementById("navPlanoAcaoM").classList.toggle("active", name === "planoacao");
   document.getElementById("navSolicitacoesM").classList.toggle("active", name === "solicitacoes");
+  document.getElementById("navPreventivasM").classList.toggle("active", name === "preventivas");
   window.scrollTo(0, 0);
   document.getElementById("pageTitle").textContent = name === "disponibilidade"
     ? "Painel de acompanhamento - Disponibilidade de ativos"
@@ -5462,10 +5722,13 @@ function switchApp(name) {
     ? "Plano de Ação — Manutenção"
     : name === "solicitacoes"
     ? "Solicitações de Serviço"
+    : name === "preventivas"
+    ? "Mapa de 52 Semanas — Preventivas"
     : "Painel de acompanhamento OPEX - Ciclo 26/27";
   if (name === "analise") renderAnaliseFalhas();
   if (name === "planoacao") renderPlanoAcao();
   if (name === "solicitacoes" && solicitacoesData) renderSolicitacoes();
+  if (name === "preventivas" && preventivasData) renderPreventivas();
 }
 document.getElementById("navCustos").addEventListener("click", () => switchApp("custos"));
 document.getElementById("navDisponibilidade").addEventListener("click", () => switchApp("disponibilidade"));
@@ -5473,12 +5736,14 @@ document.getElementById("navAnaliseFalhas").addEventListener("click", () => swit
 document.getElementById("navProgramacao").addEventListener("click", () => switchApp("programacao"));
 document.getElementById("navPlanoAcao").addEventListener("click", () => switchApp("planoacao"));
 document.getElementById("navSolicitacoes").addEventListener("click", () => switchApp("solicitacoes"));
+document.getElementById("navPreventivas").addEventListener("click", () => switchApp("preventivas"));
 document.getElementById("navCustosM").addEventListener("click", () => switchApp("custos"));
 document.getElementById("navDisponibilidadeM").addEventListener("click", () => switchApp("disponibilidade"));
 document.getElementById("navAnaliseFalhasM").addEventListener("click", () => switchApp("analise"));
 document.getElementById("navProgramacaoM").addEventListener("click", () => switchApp("programacao"));
 document.getElementById("navPlanoAcaoM").addEventListener("click", () => switchApp("planoacao"));
 document.getElementById("navSolicitacoesM").addEventListener("click", () => switchApp("solicitacoes"));
+document.getElementById("navPreventivasM").addEventListener("click", () => switchApp("preventivas"));
 document.getElementById("headerLogo").src = document.querySelector(".brand-logo-sb").src;
 
 const SUN_ICON = '<path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4l1.4-1.4M17 7l1.4-1.4"/><circle cx="12" cy="12" r="4"/>';
@@ -5562,6 +5827,14 @@ function init(){
     renderSolicitacoes();
   }
 
+  const savedPrevent = loadPreventFromStorage();
+  if (savedPrevent && savedPrevent.data && savedPrevent.data.records && savedPrevent.data.records.length) {
+    preventivasData = savedPrevent.data;
+    document.getElementById("preventDashboard").style.display = "";
+    document.getElementById("preventEmptyState").style.display = "none";
+    renderPreventivas();
+  }
+
   syncFromCloud();
 }
 
@@ -5572,6 +5845,7 @@ function getLocalMetaTimestamp(key) {
     if (key === DISP_STORAGE_KEY) { const m = localStorage.getItem(DISP_STORAGE_META_KEY); return m ? (JSON.parse(m).updatedAt || 0) : 0; }
     if (key === PROG_STORAGE_KEY) { const m = localStorage.getItem(PROG_STORAGE_META_KEY); return m ? (JSON.parse(m).updatedAt || 0) : 0; }
     if (key === SOLIC_STORAGE_KEY) { const m = localStorage.getItem(SOLIC_STORAGE_META_KEY); return m ? (JSON.parse(m).updatedAt || 0) : 0; }
+    if (key === PREVENT_STORAGE_KEY) { const m = localStorage.getItem(PREVENT_STORAGE_META_KEY); return m ? (JSON.parse(m).updatedAt || 0) : 0; }
     if (key === RCA_STORAGE_KEY) return rcaLastLoadedAt;
     if (key === PLANO_MANUAL_STORAGE_KEY) return planoLastLoadedAt;
   } catch (e) {}
@@ -5655,6 +5929,20 @@ async function syncFromCloud() {
         document.getElementById("solicEmptyState").style.display = "none";
         initSolicFilterDefaults();
         renderSolicitacoes();
+      } else if (row.key === PREVENT_STORAGE_KEY) {
+        const raw = row.data;
+        const records = raw.records.map(r => ({
+          ...r,
+          dataExecucaoPrevista: parsePreventDate(r.dataExecucaoPrevista),
+          osDataAbertura: parsePreventDate(r.osDataAbertura),
+          osDataEncerramento: parsePreventDate(r.osDataEncerramento),
+        }));
+        preventivasData = { records };
+        localStorage.setItem(PREVENT_STORAGE_KEY, JSON.stringify(raw));
+        localStorage.setItem(PREVENT_STORAGE_META_KEY, JSON.stringify({ updatedAt: cloudTs }));
+        document.getElementById("preventDashboard").style.display = "";
+        document.getElementById("preventEmptyState").style.display = "none";
+        renderPreventivas();
       }
     }
     setCloudStatus(anyApplied ? "Atualizado com dados da nuvem" : "Sincronizado com a nuvem", "ok");
