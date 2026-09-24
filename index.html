@@ -1285,15 +1285,20 @@
 
         <div class="panel">
           <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 21 2 21"/><line x1="12" y1="9" x2="12" y2="14"/><line x1="12" y1="17.5" x2="12" y2="17.5"/></svg>Preventivas atrasadas <span class="tag" id="preventAtrasadasTag"></span></div>
-          <div class="view-toggle" id="preventAtrasadasFilter" style="margin-bottom:12px;">
+          <div class="view-toggle" id="preventAtrasadasFilter" style="margin-bottom:8px;">
             <button data-os="todas" class="active" type="button">Todas</button>
             <button data-os="com" type="button">Com OS gerada</button>
             <button data-os="sem" type="button">Sem OS gerada</button>
           </div>
+          <div class="view-toggle" id="preventAtrasadasProgFilter" style="margin-bottom:12px;">
+            <button data-prog="todas" class="active" type="button">Programação: todas</button>
+            <button data-prog="programada" type="button">Programada no Melvin</button>
+            <button data-prog="nunca" type="button">Nunca programada</button>
+          </div>
           <div class="table-scroll">
             <table>
               <thead>
-                <tr><th style="text-align:left;">Equipamento</th><th style="text-align:left;">Plano</th><th style="text-align:left;">Deveria ter sido executada em</th><th>Dias em atraso</th><th>OS gerada</th><th>Nº da OS</th></tr>
+                <tr><th style="text-align:left;">Equipamento</th><th style="text-align:left;">Plano</th><th style="text-align:left;">Deveria ter sido executada em</th><th>Dias em atraso</th><th>OS gerada</th><th>Nº da OS</th><th>Programada no Melvin?</th></tr>
               </thead>
               <tbody id="preventAtrasadasBody"></tbody>
             </table>
@@ -5385,19 +5390,38 @@ function computePreventAtrasadas(records) {
 }
 
 let preventAtrasadasOsFilter = "todas";
+let preventAtrasadasProgFilter = "todas";
+
+// uma OS só aparece no relatório de Programação do Melvin (GetRelCumprimentoProgramacao) se
+// alguém já tiver colocado uma dataProgramacao (ou dataExecucao) nela — OS gerada automaticamente
+// pelo plano preventivo, mas nunca puxada pra dentro da programação semanal, fica de fora desse
+// relatório mesmo estando aberta e vencida. Por isso "programada no Melvin" aqui é só "o código da
+// OS aparece em algum registro de progData", não uma reclassificação nossa.
+function preventProgCodesSet() {
+  return new Set((progData && progData.records ? progData.records : []).map(r => String(r.codOrdem)));
+}
 
 function renderPreventAtrasadasTable() {
   if (!preventivasData) return;
-  const todasAtrasadas = computePreventAtrasadas(preventivasData.records);
-  const atrasadas = preventAtrasadasOsFilter === "todas" ? todasAtrasadas
+  const progCodes = preventProgCodesSet();
+  let todasAtrasadas = computePreventAtrasadas(preventivasData.records).map(o => ({
+    ...o,
+    programadaNoMelvin: o.idOrdemServico ? (o.codOrdem != null && progCodes.has(String(o.codOrdem))) : null, // null = não se aplica (sem OS)
+  }));
+  let atrasadas = preventAtrasadasOsFilter === "todas" ? todasAtrasadas
     : preventAtrasadasOsFilter === "com" ? todasAtrasadas.filter(o => !!o.idOrdemServico)
     : todasAtrasadas.filter(o => !o.idOrdemServico);
+  atrasadas = preventAtrasadasProgFilter === "todas" ? atrasadas
+    : preventAtrasadasProgFilter === "programada" ? atrasadas.filter(o => o.programadaNoMelvin === true)
+    : atrasadas.filter(o => o.programadaNoMelvin === false); // "nunca programada" — só entre as que têm OS
   document.getElementById("preventAtrasadasTag").textContent = `${atrasadas.length} de ${todasAtrasadas.length} atrasada(s)`;
   const tbody = document.getElementById("preventAtrasadasBody");
   tbody.innerHTML = atrasadas.length ? atrasadas.map(o => {
     const equip = o.equipamentoTag || o.equipamentoDescricao || "—";
     const plano = o.descricaoFmp || o.tagFmp || "Plano sem nome";
     const temOs = !!o.idOrdemServico;
+    const progLabel = o.programadaNoMelvin === null ? "—" : (o.programadaNoMelvin ? "Sim" : "Não");
+    const progColor = o.programadaNoMelvin === false ? `color:${COLOR_SALDO_NEG};font-weight:600;` : "";
     return `<tr>
       <td>${esc(equip)}</td>
       <td>${esc(plano)}</td>
@@ -5405,9 +5429,15 @@ function renderPreventAtrasadasTable() {
       <td style="text-align:center;">${o.diasAtraso}</td>
       <td style="text-align:center;">${temOs ? "Sim" : "Não"}</td>
       <td style="text-align:center;">${temOs && o.codOrdem ? esc(String(o.codOrdem)) : "—"}</td>
+      <td style="text-align:center;${progColor}">${progLabel}</td>
     </tr>`;
-  }).join("") : `<tr><td colspan="6" style="text-align:center;color:var(--muted);">${todasAtrasadas.length ? "Nenhuma atrasada nesse filtro." : "Nenhuma preventiva atrasada no momento."}</td></tr>`;
+  }).join("") : `<tr><td colspan="7" style="text-align:center;color:var(--muted);">${todasAtrasadas.length ? "Nenhuma atrasada nesse filtro." : "Nenhuma preventiva atrasada no momento."}</td></tr>`;
 }
+document.querySelectorAll("#preventAtrasadasProgFilter button").forEach(b => b.addEventListener("click", () => {
+  preventAtrasadasProgFilter = b.dataset.prog;
+  document.querySelectorAll("#preventAtrasadasProgFilter button").forEach(x => x.classList.toggle("active", x === b));
+  renderPreventAtrasadasTable();
+}));
 document.querySelectorAll("#preventAtrasadasFilter button").forEach(b => b.addEventListener("click", () => {
   preventAtrasadasOsFilter = b.dataset.os;
   document.querySelectorAll("#preventAtrasadasFilter button").forEach(x => x.classList.toggle("active", x === b));
