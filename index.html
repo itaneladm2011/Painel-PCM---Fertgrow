@@ -5094,20 +5094,15 @@ function preventOcorrenciaEstado(o) {
   return dOnly(o.dataExecucaoPrevista) < dOnly(new Date()) ? "atrasada" : "pendente";
 }
 
-// semanas do mapa: da primeira ocorr\u00eancia conhecida at\u00e9 hoje (nunca mostra semanas futuras \u2014
-// ainda n\u00e3o fizeram sentido de "ader\u00eancia"), sempre come\u00e7ando num domingo, igual ao resto do painel
-function computePreventWeeks(records) {
-  const today = dOnly(new Date());
-  let minDate = null;
-  records.forEach(r => {
-    if (!r.dataExecucaoPrevista) return;
-    const d = dOnly(r.dataExecucaoPrevista);
-    if (!minDate || d < minDate) minDate = d;
-  });
-  if (!minDate) return [];
-  const firstWeekStart = dWeekStartSunday(minDate);
+// o mapa mostra o CICLO INTEIRO (52 semanas fixas, mesmo padr\u00e3o "CICLO 26/27" usado no resto do
+// painel), n\u00e3o s\u00f3 at\u00e9 hoje \u2014 assim as datas j\u00e1 previstas no futuro tamb\u00e9m aparecem
+const PREVENT_CYCLE_START = "2026-07-01";
+const PREVENT_CYCLE_WEEKS = 52;
+function computePreventWeeks() {
+  const firstWeekStart = dWeekStartSunday(dParseIso(PREVENT_CYCLE_START));
   const weeks = [];
-  for (let ws = firstWeekStart; ws <= today; ws = dAdd(ws, 7)) {
+  for (let i = 0; i < PREVENT_CYCLE_WEEKS; i++) {
+    const ws = dAdd(firstWeekStart, i * 7);
     weeks.push({ start: ws, end: dAdd(ws, 6) });
   }
   return weeks;
@@ -5119,13 +5114,15 @@ function computePreventByPlano(records, weeks) {
   const byKey = {};
   records.forEach(r => {
     const key = (r.idFmp || "semfmp") + "|" + (r.idEquipamento || "semequip");
-    if (!byKey[key]) byKey[key] = { key, tagFmp: r.tagFmp || r.descricaoFmp || "Plano sem nome", equipamentoTag: "", ocorrencias: [] };
+    if (!byKey[key]) byKey[key] = { key, tagFmp: r.tagFmp || "", descricaoFmp: r.descricaoFmp || "", equipamentoTag: "", ocorrencias: [] };
     if (!byKey[key].equipamentoTag && r.equipamentoTag) byKey[key].equipamentoTag = r.equipamentoTag;
     byKey[key].ocorrencias.push(r);
   });
   const planos = Object.values(byKey);
   planos.forEach(p => {
-    p.label = p.equipamentoTag ? `${p.tagFmp} \u2014 ${p.equipamentoTag}` : p.tagFmp;
+    // descri\u00e7\u00e3o em vez do c\u00f3digo interno da FMP (tagFmp), que fica confuso pra quem n\u00e3o cadastrou o plano
+    const nomePlano = p.descricaoFmp || p.tagFmp || "Plano sem nome";
+    p.label = p.equipamentoTag ? `${nomePlano} \u2014 ${p.equipamentoTag}` : nomePlano;
     p.cells = weeks.map(w => {
       const nesta = p.ocorrencias.filter(o => o.dataExecucaoPrevista && dOnly(o.dataExecucaoPrevista) >= w.start && dOnly(o.dataExecucaoPrevista) <= w.end);
       if (nesta.length === 0) return { status: "vazio", ocorrencias: [] };
@@ -5221,7 +5218,7 @@ let preventFilterText = "";
 
 function renderPreventivas() {
   if (!preventivasData) return;
-  const weeks = computePreventWeeks(preventivasData.records);
+  const weeks = computePreventWeeks();
   const planos = computePreventByPlano(preventivasData.records, weeks);
   preventPlanosAll = planos;
 
@@ -5261,7 +5258,7 @@ function renderPreventivas() {
 }
 
 function renderPreventFiltered() {
-  const weeks = computePreventWeeks(preventivasData ? preventivasData.records : []);
+  const weeks = computePreventWeeks();
   const termo = preventFilterText.trim().toLowerCase();
   const filtrados = termo ? preventPlanosAll.filter(p => p.label.toLowerCase().includes(termo)) : preventPlanosAll;
   document.getElementById("preventPlanosTag").textContent = `${filtrados.length} de ${preventPlanosAll.length} plano(s)`;
