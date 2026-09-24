@@ -1285,6 +1285,11 @@
 
         <div class="panel">
           <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 21 2 21"/><line x1="12" y1="9" x2="12" y2="14"/><line x1="12" y1="17.5" x2="12" y2="17.5"/></svg>Preventivas atrasadas <span class="tag" id="preventAtrasadasTag"></span></div>
+          <div class="view-toggle" id="preventAtrasadasFilter" style="margin-bottom:12px;">
+            <button data-os="todas" class="active" type="button">Todas</button>
+            <button data-os="com" type="button">Com OS gerada</button>
+            <button data-os="sem" type="button">Sem OS gerada</button>
+          </div>
           <div class="table-scroll">
             <table>
               <thead>
@@ -5379,10 +5384,15 @@ function computePreventAtrasadas(records) {
     .sort((a, b) => dOnly(a.dataExecucaoPrevista) - dOnly(b.dataExecucaoPrevista)); // mais atrasada primeiro
 }
 
+let preventAtrasadasOsFilter = "todas";
+
 function renderPreventAtrasadasTable() {
   if (!preventivasData) return;
-  const atrasadas = computePreventAtrasadas(preventivasData.records);
-  document.getElementById("preventAtrasadasTag").textContent = `${atrasadas.length} atrasada(s)`;
+  const todasAtrasadas = computePreventAtrasadas(preventivasData.records);
+  const atrasadas = preventAtrasadasOsFilter === "todas" ? todasAtrasadas
+    : preventAtrasadasOsFilter === "com" ? todasAtrasadas.filter(o => !!o.idOrdemServico)
+    : todasAtrasadas.filter(o => !o.idOrdemServico);
+  document.getElementById("preventAtrasadasTag").textContent = `${atrasadas.length} de ${todasAtrasadas.length} atrasada(s)`;
   const tbody = document.getElementById("preventAtrasadasBody");
   tbody.innerHTML = atrasadas.length ? atrasadas.map(o => {
     const equip = o.equipamentoTag || o.equipamentoDescricao || "—";
@@ -5396,8 +5406,13 @@ function renderPreventAtrasadasTable() {
       <td style="text-align:center;">${temOs ? "Sim" : "Não"}</td>
       <td style="text-align:center;">${temOs && o.codOrdem ? esc(String(o.codOrdem)) : "—"}</td>
     </tr>`;
-  }).join("") : `<tr><td colspan="6" style="text-align:center;color:var(--muted);">Nenhuma preventiva atrasada no momento.</td></tr>`;
+  }).join("") : `<tr><td colspan="6" style="text-align:center;color:var(--muted);">${todasAtrasadas.length ? "Nenhuma atrasada nesse filtro." : "Nenhuma preventiva atrasada no momento."}</td></tr>`;
 }
+document.querySelectorAll("#preventAtrasadasFilter button").forEach(b => b.addEventListener("click", () => {
+  preventAtrasadasOsFilter = b.dataset.os;
+  document.querySelectorAll("#preventAtrasadasFilter button").forEach(x => x.classList.toggle("active", x === b));
+  renderPreventAtrasadasTable();
+}));
 
 function renderPreventFiltered() {
   const weeks = computePreventWeeks();
