@@ -1282,6 +1282,18 @@
             <span class="legend-item"><span class="legend-swatch" style="background:#E4E1DA"></span>Sem ocorrência prevista</span>
           </div>
         </div>
+
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 21 2 21"/><line x1="12" y1="9" x2="12" y2="14"/><line x1="12" y1="17.5" x2="12" y2="17.5"/></svg>Preventivas atrasadas <span class="tag" id="preventAtrasadasTag"></span></div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th style="text-align:left;">Equipamento</th><th style="text-align:left;">Plano</th><th style="text-align:left;">Deveria ter sido executada em</th><th>Dias em atraso</th><th>OS gerada</th><th>Nº da OS</th></tr>
+              </thead>
+              <tbody id="preventAtrasadasBody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
       <div class="disp-source-footer">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
@@ -5354,6 +5366,37 @@ function renderPreventivas() {
   `;
 
   renderPreventFiltered();
+  renderPreventAtrasadasTable();
+}
+
+// lista plana (não agrupada por equipamento) de toda ocorrência atrasada, pra dar uma visão de
+// ação direta: quem está atrasado, desde quando, e se já existe OS gerada pra cobrar/acompanhar
+function computePreventAtrasadas(records) {
+  const hoje = dOnly(new Date());
+  return records
+    .filter(o => preventOcorrenciaEstado(o) === "atrasada")
+    .map(o => ({ ...o, diasAtraso: Math.round((hoje - dOnly(o.dataExecucaoPrevista)) / 86400000) }))
+    .sort((a, b) => dOnly(a.dataExecucaoPrevista) - dOnly(b.dataExecucaoPrevista)); // mais atrasada primeiro
+}
+
+function renderPreventAtrasadasTable() {
+  if (!preventivasData) return;
+  const atrasadas = computePreventAtrasadas(preventivasData.records);
+  document.getElementById("preventAtrasadasTag").textContent = `${atrasadas.length} atrasada(s)`;
+  const tbody = document.getElementById("preventAtrasadasBody");
+  tbody.innerHTML = atrasadas.length ? atrasadas.map(o => {
+    const equip = o.equipamentoTag || o.equipamentoDescricao || "—";
+    const plano = o.descricaoFmp || o.tagFmp || "Plano sem nome";
+    const temOs = !!o.idOrdemServico;
+    return `<tr>
+      <td>${esc(equip)}</td>
+      <td>${esc(plano)}</td>
+      <td>${dBR(o.dataExecucaoPrevista)}</td>
+      <td style="text-align:center;">${o.diasAtraso}</td>
+      <td style="text-align:center;">${temOs ? "Sim" : "Não"}</td>
+      <td style="text-align:center;">${temOs && o.codOrdem ? esc(String(o.codOrdem)) : "—"}</td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="6" style="text-align:center;color:var(--muted);">Nenhuma preventiva atrasada no momento.</td></tr>`;
 }
 
 function renderPreventFiltered() {
