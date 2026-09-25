@@ -1258,7 +1258,7 @@
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
         </div>
         <div class="panel-title" style="justify-content:center;">Mapa de 52 Semanas</div>
-        <p class="empty-text">Assim que os dados de preventivas chegarem do sistema Melvin, o mapa de aderência por equipamento aparece aqui.</p>
+        <p class="empty-text">Assim que os dados de preventivas chegarem do sistema Melvin, o mapa de aderência por plano aparece aqui.</p>
       </div>
 
       <div id="preventDashboard" style="display:none;">
@@ -1272,13 +1272,14 @@
         <div class="kpi-row" id="preventKpiRow"></div>
 
         <div class="panel">
-          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Aderência por equipamento <span class="tag" id="preventPlanosTag"></span></div>
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Aderência por plano <span class="tag" id="preventPlanosTag"></span></div>
           <div class="chart-wrap"><svg id="preventMapaChart" width="100%" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet"></svg></div>
           <div class="legend">
             <span class="legend-item"><span class="legend-swatch" style="background:var(--realizado)"></span>Concluída no prazo</span>
             <span class="legend-item"><span class="legend-swatch" style="background:var(--saldo-neg)"></span>Atrasada</span>
             <span class="legend-item"><span class="legend-swatch" style="background:var(--tratado)"></span>Programada, ainda no prazo</span>
             <span class="legend-item"><span class="legend-swatch" style="background:#8FB6DE"></span>Estimativa pela periodicidade</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:#C4B896"></span>Plano cadastrado, ainda não iniciado</span>
             <span class="legend-item"><span class="legend-swatch" style="background:#E4E1DA"></span>Sem ocorrência prevista</span>
           </div>
         </div>
@@ -5173,10 +5174,12 @@ document.getElementById("solicDateEnd").addEventListener("change", (e) => {
 });
 
 /* ============ Mapa de 52 Semanas \u2014 c\u00e1lculo e render ============
-   Uma ocorr\u00eancia \u00e9: conclu\u00edda (OS encerrada) / atrasada (prazo j\u00e1 passou sem encerrar) /
+   Uma ocorr\u00eancia \u00e9: conclu\u00edda (OS encerrada) / n\u00e3o iniciada (plano cadastrado, mas ainda n\u00e3o
+   ativado no Melvin \u2014 nunca teria OS de qualquer forma) / atrasada (prazo j\u00e1 passou sem encerrar) /
    pendente (ainda dentro do prazo \u2014 mesma premissa j\u00e1 usada em Programa\u00e7\u00e3o: "hoje" ainda n\u00e3o \u00e9 atraso). */
 function preventOcorrenciaEstado(o) {
   if (o.osDataEncerramento) return "concluida";
+  if (!o.idOrdemServico && o.planoAtivo === false) return "nao_iniciado";
   if (!o.dataExecucaoPrevista) return "pendente";
   return dOnly(o.dataExecucaoPrevista) < dOnly(new Date()) ? "atrasada" : "pendente";
 }
@@ -5195,30 +5198,38 @@ function computePreventWeeks() {
   return weeks;
 }
 
-// agrupa por EQUIPAMENTO (um equipamento pode ter mais de um plano/FMP aplicado \u2014 ex.: lubrifica\u00e7\u00e3o
-// mensal + inspe\u00e7\u00e3o trimestral \u2014 os planos distintos ficam listados em "planosLabel" pra aparecer
-// no filtro e no tooltip, mas a linha do mapa \u00e9 uma por equipamento, com a TAG sempre vis\u00edvel porque
-// vem do cadastro completo (Equipamento/GetAll), n\u00e3o de uma OS que porventura j\u00e1 tenha sido aberta)
+// agrupa por PAR plano+equipamento \u2014 uma linha por combina\u00e7\u00e3o (n\u00e3o s\u00f3 por equipamento), porque
+// um equipamento pode ter v\u00e1rios planos distintos (ex.: lubrifica\u00e7\u00e3o mensal + inspe\u00e7\u00e3o trimestral) e
+// misturar os dois numa c\u00e9lula s\u00f3 esconde justamente o que mais importa: qual plano espec\u00edfico est\u00e1
+// em dia e qual n\u00e3o est\u00e1. O r\u00f3tulo mostra TAG do equipamento + nome do plano, sem precisar de hover.
 function computePreventByEquipamento(records, weeks) {
   const byKey = {};
   records.forEach(r => {
-    const key = r.idEquipamento || "semequip";
-    if (!byKey[key]) byKey[key] = { key, equipamentoTag: "", equipamentoDescricao: "", planosSet: new Set(), ocorrencias: [] };
+    const key = `${r.idFmp || "semplano"}|${r.idEquipamento || "semequip"}`;
+    if (!byKey[key]) byKey[key] = { key, equipamentoTag: "", equipamentoDescricao: "", descricaoFmp: "", tagFmp: "", ocorrencias: [] };
     if (!byKey[key].equipamentoTag && r.equipamentoTag) byKey[key].equipamentoTag = r.equipamentoTag;
     if (!byKey[key].equipamentoDescricao && r.equipamentoDescricao) byKey[key].equipamentoDescricao = r.equipamentoDescricao;
-    byKey[key].planosSet.add(r.descricaoFmp || r.tagFmp || "Plano sem nome");
+    if (!byKey[key].descricaoFmp && r.descricaoFmp) byKey[key].descricaoFmp = r.descricaoFmp;
+    if (!byKey[key].tagFmp && r.tagFmp) byKey[key].tagFmp = r.tagFmp;
     byKey[key].ocorrencias.push(r);
   });
   const equipamentos = Object.values(byKey);
   equipamentos.forEach(p => {
-    p.label = p.equipamentoTag || p.equipamentoDescricao || "Equipamento sem identifica\u00e7\u00e3o";
-    p.subLabel = (p.equipamentoDescricao && p.equipamentoDescricao !== p.label) ? p.equipamentoDescricao : "";
-    p.planosLabel = Array.from(p.planosSet).sort().join(", ");
+    const equipTag = p.equipamentoTag || p.equipamentoDescricao || "Equipamento sem identifica\u00e7\u00e3o";
+    const nomePlano = p.descricaoFmp || p.tagFmp || "Plano sem nome";
+    p.label = `${equipTag} \u2014 ${nomePlano}`;
+    p.equipLabel = equipTag;
+    p.planoLabel = nomePlano;
+    p.subLabel = (p.equipamentoDescricao && p.equipamentoDescricao !== equipTag) ? p.equipamentoDescricao : "";
     p.cells = weeks.map(w => {
       const nesta = p.ocorrencias.filter(o => o.dataExecucaoPrevista && dOnly(o.dataExecucaoPrevista) >= w.start && dOnly(o.dataExecucaoPrevista) <= w.end);
       if (nesta.length === 0) return { status: "vazio", ocorrencias: [] };
       const estados = nesta.map(preventOcorrenciaEstado);
-      let pior = estados.includes("atrasada") ? "atrasada" : estados.includes("pendente") ? "pendente" : "concluida";
+      let pior;
+      if (estados.includes("atrasada")) pior = "atrasada";
+      else if (estados.includes("pendente")) pior = "pendente";
+      else if (estados.every(e => e === "nao_iniciado")) pior = "nao_iniciado";
+      else pior = "concluida";
       // pendente só com ocorrências PROJETADAS (nenhuma delas ainda gerada pelo Melvin) vira um status
       // próprio — é uma estimativa calculada pela periodicidade do plano, não uma data confirmada
       if (pior === "pendente" && nesta.every(o => o.projetado)) pior = "estimado";
@@ -5236,19 +5247,21 @@ function computePreventByEquipamento(records, weeks) {
       .sort((a, b) => a.dataExecucaoPrevista < b.dataExecucaoPrevista ? -1 : 1);
     p.proximaPrevista = pendentes.length ? pendentes[0].dataExecucaoPrevista : null;
   });
-  return equipamentos.sort((a, b) => a.label.localeCompare(b.label));
+  // agrupa visualmente por equipamento (mesma TAG fica em linhas seguidas) e, dentro do mesmo
+  // equipamento, ordena por nome do plano
+  return equipamentos.sort((a, b) => a.equipLabel.localeCompare(b.equipLabel) || a.planoLabel.localeCompare(b.planoLabel));
 }
 
-const PREVENT_STATUS_COLOR = { concluida: COLOR_REALIZADO, atrasada: COLOR_SALDO_NEG, pendente: "#1F5FA8", estimado: "#8FB6DE", vazio: "#E4E1DA" };
-const PREVENT_STATUS_LABEL = { concluida: "Conclu\u00edda no prazo", atrasada: "Atrasada", pendente: "Programada, ainda no prazo", estimado: "Estimativa pela periodicidade do plano", vazio: "Sem ocorr\u00eancia prevista" };
+const PREVENT_STATUS_COLOR = { concluida: COLOR_REALIZADO, atrasada: COLOR_SALDO_NEG, pendente: "#1F5FA8", estimado: "#8FB6DE", nao_iniciado: "#C4B896", vazio: "#E4E1DA" };
+const PREVENT_STATUS_LABEL = { concluida: "Conclu\u00edda no prazo", atrasada: "Atrasada", pendente: "Programada, ainda no prazo", estimado: "Estimativa pela periodicidade do plano", nao_iniciado: "Plano cadastrado, ainda n\u00e3o iniciado", vazio: "Sem ocorr\u00eancia prevista" };
 
 /* ============ gr\u00e1fico: mapa de 52 semanas (uma linha por equipamento, uma coluna por semana) ============ */
 function renderPreventMapaChart(svgId, planos, weeks) {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
   const M = isMobileView();
-  const rowH = M ? 26 : 30, cellW = M ? 11 : 14;
-  const marginL = M ? 150 : 230, marginR = 14, marginT = 22, marginB = 10;
+  const rowH = M ? 30 : 34, cellW = M ? 11 : 14;
+  const marginL = M ? 165 : 260, marginR = 14, marginT = 22, marginB = 10;
   const n = weeks.length || 1;
   const plotW = cellW * n;
   const W = marginL + plotW + marginR;
@@ -5284,24 +5297,32 @@ function renderPreventMapaChart(svgId, planos, weeks) {
     }
   });
 
+  // r\u00f3tulo em DUAS linhas alinhadas \u00e0 ESQUERDA (n\u00e3o mais \u00e0 direita) \u2014 a TAG fica numa coluna reta,
+  // f\u00e1cil de escanear de cima a baixo, e o nome do plano (comprimento bem vari\u00e1vel) trunca embaixo
+  // sem bagun\u00e7ar o alinhamento da TAG
+  const labelX = 8;
+  const maxCharsTag = Math.floor((marginL - labelX - 6) / 5.7);
+  const maxCharsPlano = Math.floor((marginL - labelX - 6) / 4.6);
+
   planos.forEach((p, i) => {
     const gy = marginT + i * rowH;
-    const maxChars = Math.floor((marginL - 14) / 5.6);
 
-    const label = el("text", { x: marginL - 10, y: gy + rowH / 2 - (p.proximaPrevista ? 2.5 : -3), "text-anchor": "end", "font-size": 9.5, fill: "#34302B", "font-weight": 600, "font-family": "'IBM Plex Mono',monospace" });
-    label.textContent = p.label.length > maxChars ? p.label.slice(0, maxChars - 1) + "\u2026" : p.label;
-    const titleEl = document.createElementNS(SVGNS, "title");
-    titleEl.textContent = p.subLabel ? `${p.label} \u2014 ${p.subLabel}` : p.label;
-    label.appendChild(titleEl);
-    svg.appendChild(label);
+    const tagLine = el("text", { x: labelX, y: gy + 12, "text-anchor": "start", "font-size": 9.5, fill: "#34302B", "font-weight": 700, "font-family": "'IBM Plex Mono',monospace" });
+    tagLine.textContent = p.equipLabel.length > maxCharsTag ? p.equipLabel.slice(0, maxCharsTag - 1) + "\u2026" : p.equipLabel;
+    const tagTitle = document.createElementNS(SVGNS, "title");
+    tagTitle.textContent = p.subLabel ? `${p.equipLabel} \u2014 ${p.subLabel}` : p.equipLabel;
+    tagLine.appendChild(tagTitle);
+    svg.appendChild(tagLine);
 
-    // pr\u00f3xima previs\u00e3o de realiza\u00e7\u00e3o direto na linha do mapa (n\u00e3o s\u00f3 no hover) \u2014 \u00e9 o que o
-    // usu\u00e1rio pediu pra ficar claro sem precisar passar o mouse em cada c\u00e9lula
-    if (p.proximaPrevista) {
-      const sub = el("text", { x: marginL - 10, y: gy + rowH / 2 + 9, "text-anchor": "end", "font-size": 8, fill: "#948F86", "font-family": "'IBM Plex Mono',monospace" });
-      sub.textContent = `pr\u00f3x. ${dBR(p.proximaPrevista)}`;
-      svg.appendChild(sub);
-    }
+    let planoTexto = p.planoLabel;
+    // "pr\u00f3x. DD/MM" direto na linha (n\u00e3o s\u00f3 no hover) \u2014 \u00e9 a previs\u00e3o de realiza\u00e7\u00e3o desse plano
+    if (p.proximaPrevista) planoTexto += `  \u00b7 pr\u00f3x. ${dBR(p.proximaPrevista)}`;
+    const planoLine = el("text", { x: labelX, y: gy + 23, "text-anchor": "start", "font-size": 7.8, fill: "#8A857C", "font-family": "'IBM Plex Mono',monospace" });
+    planoLine.textContent = planoTexto.length > maxCharsPlano ? planoTexto.slice(0, maxCharsPlano - 1) + "\u2026" : planoTexto;
+    const planoTitle = document.createElementNS(SVGNS, "title");
+    planoTitle.textContent = planoTexto;
+    planoLine.appendChild(planoTitle);
+    svg.appendChild(planoLine);
 
     p.cells.forEach((c, wi) => {
       const gx = marginL + wi * cellW;
@@ -5311,7 +5332,7 @@ function renderPreventMapaChart(svgId, planos, weeks) {
         const w = weeks[wi];
         rect.addEventListener("mousemove", (evt) => showTooltip(evt, `${p.label} \u00b7 SEM ${weekNumberSunday(w.start)} (${dBR(w.start)} a ${dBR(w.end)})`, [
           { key: "Situa\u00e7\u00e3o", val: PREVENT_STATUS_LABEL[c.status], color: PREVENT_STATUS_COLOR[c.status], fmt: (v) => esc(v) },
-          ...c.ocorrencias.map(o => ({ key: o.descricaoFmp || o.tagFmp || "Plano", val: `${o.osDataEncerramento ? `conclu\u00edda em ${dBR(o.osDataEncerramento)}` : `previs\u00e3o: ${dBR(o.dataExecucaoPrevista)}`}${o.codOrdem ? ` \u00b7 OS ${o.codOrdem}` : (o.projetado ? " \u00b7 estimativa (periodicidade)" : " \u00b7 sem OS gerada")}`, color: "#948F86", fmt: (v) => esc(v) })),
+          ...c.ocorrencias.map(o => ({ key: `Previsto p/ ${dBR(o.dataExecucaoPrevista)}`, val: `${o.osDataEncerramento ? `conclu\u00edda em ${dBR(o.osDataEncerramento)}` : (o.codOrdem ? `OS ${o.codOrdem} aberta, ainda n\u00e3o encerrada` : (o.planoAtivo === false ? "plano ainda n\u00e3o ativado no Melvin" : (o.projetado ? "estimativa pela periodicidade" : "sem OS gerada")))}`, color: "#948F86", fmt: (v) => esc(v) })),
         ]));
         rect.addEventListener("mouseleave", hideTooltip);
       }
@@ -5354,9 +5375,9 @@ function renderPreventivas() {
 
   document.getElementById("preventKpiRow").innerHTML = `
     <div class="kpi-card">
-      <div class="kpi-label">Equipamentos monitorados</div>
+      <div class="kpi-label">Planos monitorados</div>
       <div class="kpi-value">${planos.length}</div>
-      <div class="kpi-sub">com preventiva agendada no ciclo</div>
+      <div class="kpi-sub">${new Set(planos.map(p => p.equipLabel)).size} equipamento(s) · plano × equipamento, no ciclo</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label" style="color:${COLOR_REALIZADO}">Ader\u00eancia geral</div>
@@ -5448,9 +5469,9 @@ function renderPreventFiltered() {
   const weeks = computePreventWeeks();
   const termo = preventFilterText.trim().toLowerCase();
   const filtrados = termo
-    ? preventPlanosAll.filter(p => p.label.toLowerCase().includes(termo) || p.subLabel.toLowerCase().includes(termo) || p.planosLabel.toLowerCase().includes(termo))
+    ? preventPlanosAll.filter(p => p.label.toLowerCase().includes(termo) || p.subLabel.toLowerCase().includes(termo))
     : preventPlanosAll;
-  document.getElementById("preventPlanosTag").textContent = `${filtrados.length} de ${preventPlanosAll.length} equipamento(s)`;
+  document.getElementById("preventPlanosTag").textContent = `${filtrados.length} de ${preventPlanosAll.length} plano(s)`;
   renderPreventMapaChart("preventMapaChart", filtrados, weeks);
 }
 document.getElementById("preventFilterInput").addEventListener("input", (e) => {
