@@ -5181,6 +5181,11 @@ function preventOcorrenciaEstado(o) {
   if (o.osDataEncerramento) return "concluida";
   if (!o.idOrdemServico && o.planoAtivo === false) return "nao_iniciado";
   if (!o.dataExecucaoPrevista) return "pendente";
+  // ocorr\u00eancia PROJETADA (estimativa nossa, n\u00e3o dado real do Melvin) nunca vira "atrasada" \u2014 \u00e9 s\u00f3 um
+  // palpite de data futura; se passar sem uma sincroniza\u00e7\u00e3o nova confirmar/substituir, o palpite fica
+  // obsoleto (fica "pendente", que a agrega\u00e7\u00e3o por c\u00e9lula j\u00e1 rebaixa pra "estimado"), n\u00e3o \u00e9 uma
+  // pend\u00eancia real. Sem isso, uma estimativa "presa" entre sincroniza\u00e7\u00f5es virava atraso falso.
+  if (o.projetado) return "pendente";
   return dOnly(o.dataExecucaoPrevista) < dOnly(new Date()) ? "atrasada" : "pendente";
 }
 
@@ -5242,8 +5247,9 @@ function computePreventByEquipamento(records, weeks) {
     p.pctAderencia = vencidas > 0 ? (p.concluidas / vencidas) * 100 : null;
     // pr\u00f3xima ocorr\u00eancia ainda dentro do prazo \u2014 mostrada direto na linha do mapa (n\u00e3o s\u00f3 no hover),
     // pra responder "quando \u00e9 a pr\u00f3xima preventiva desse equipamento" de forma imediata
+    const hojeOnly = dOnly(new Date());
     const pendentes = p.ocorrencias
-      .filter(o => preventOcorrenciaEstado(o) === "pendente" && o.dataExecucaoPrevista)
+      .filter(o => preventOcorrenciaEstado(o) === "pendente" && o.dataExecucaoPrevista && dOnly(o.dataExecucaoPrevista) >= hojeOnly)
       .sort((a, b) => a.dataExecucaoPrevista < b.dataExecucaoPrevista ? -1 : 1);
     p.proximaPrevista = pendentes.length ? pendentes[0].dataExecucaoPrevista : null;
   });
