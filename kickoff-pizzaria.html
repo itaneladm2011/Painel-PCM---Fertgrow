@@ -1,0 +1,220 @@
+<title>Kickoff da Pizzaria</title>
+<style>
+  :root{
+    --bg:#FAF6F0;
+    --paper:#FFFFFF;
+    --ink:#2A2320;
+    --muted:#7A6F65;
+    --line:#E7DFD5;
+    --accent:#A6362A;
+    --accent-ink:#FFF4F0;
+    --check:#5B7A52;
+    --tag-bg:#F1E9DD;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1C1714;
+      --paper:#241D19;
+      --ink:#F1E7DC;
+      --muted:#A99B8D;
+      --line:#3A2F29;
+      --accent:#E2685A;
+      --accent-ink:#2A1512;
+      --check:#8CB07F;
+      --tag-bg:#2E2620;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1C1714;
+    --paper:#241D19;
+    --ink:#F1E7DC;
+    --muted:#A99B8D;
+    --line:#3A2F29;
+    --accent:#E2685A;
+    --accent-ink:#2A1512;
+    --check:#8CB07F;
+    --tag-bg:#2E2620;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Work Sans', -apple-system, sans-serif;
+    padding:0 16px;
+    padding-block:36px;
+    display:flex;
+    justify-content:center;
+  }
+  .page{
+    width:100%;
+    max-width:680px;
+  }
+  .kicker{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--accent);
+    font-weight:700;
+    margin-bottom:10px;
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:clamp(30px,6vw,42px);
+    line-height:1.08;
+    margin:0 0 10px;
+    text-wrap:balance;
+  }
+  .lede{
+    color:var(--muted);
+    font-size:15.5px;
+    line-height:1.55;
+    max-width:56ch;
+    margin:0 0 30px;
+  }
+  .lede b{ color:var(--ink); }
+
+  section{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px 24px 24px;
+    margin-bottom:16px;
+  }
+  section h2{
+    font-family:'Fraunces', serif;
+    font-size:19px;
+    font-weight:600;
+    margin:0 0 4px;
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  section h2 .num{
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    color:var(--accent);
+    font-weight:700;
+  }
+  section .why{
+    font-size:13.5px;
+    color:var(--muted);
+    line-height:1.5;
+    margin:0 0 16px;
+    padding-bottom:14px;
+    border-bottom:1px dashed var(--line);
+  }
+
+  ul.items{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:11px; }
+  ul.items li{
+    display:flex;
+    align-items:flex-start;
+    gap:11px;
+    font-size:14.5px;
+    line-height:1.48;
+  }
+  .box{
+    flex:0 0 auto;
+    width:17px; height:17px;
+    border:1.6px solid var(--muted);
+    border-radius:5px;
+    margin-top:2px;
+  }
+  ul.items li b{ font-weight:600; }
+  ul.items li span.hint{
+    display:block;
+    color:var(--muted);
+    font-size:12.5px;
+    margin-top:2px;
+  }
+
+  .qgrid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:9px 14px;
+  }
+  @media (max-width:520px){ .qgrid{ grid-template-columns:1fr; } }
+  .qgrid .q{
+    background:var(--tag-bg);
+    border-radius:9px;
+    padding:9px 12px;
+    font-size:13.5px;
+    line-height:1.4;
+  }
+
+  .footer{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    padding-top:8px;
+    color:var(--muted);
+    font-size:12.5px;
+  }
+  .footer .brand{
+    font-family:'Space Mono', monospace;
+    letter-spacing:.04em;
+  }
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Work+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+
+<div class="page">
+  <div class="kicker">Painel de gestão · pré-conversa</div>
+  <h1>O que preciso saber sobre a pizzaria</h1>
+  <p class="lede">Isso aqui não é formulário pra preencher sozinho — é o roteiro da nossa conversa. Dá uma olhada antes, separa o que já sabe de cabeça e o que precisa checar (login de algum sistema, planilha, etc.), e conversamos em cima disso.</p>
+
+  <section>
+    <h2><span class="num">01</span> Como as vendas são registradas hoje</h2>
+    <p class="why">Isso define se o painel puxa dado automático ou se alguém vai lançar manualmente.</p>
+    <ul class="items">
+      <li><span class="box"></span><div><b>Sistema de PDV/caixa</b> — usa algo tipo Consumer, Colibri, Menew, iFood PDV, ou é só a maquininha do cartão?<span class="hint">Se usa algum sistema, veja se ele consegue tirar um relatório/exportar planilha, e se tem acesso de "dono"/admin.</span></div></li>
+      <li><span class="box"></span><div><b>Apps de delivery</b> — iFood, Anota Aí, Goomer, WhatsApp direto?<span class="hint">Cada app costuma ter seu próprio painel de vendas — vale saber quais usa e há quanto tempo.</span></div></li>
+      <li><span class="box"></span><div><b>Balcão/mesa</b> — como fica registrado quando o cliente compra direto na loja?</div></li>
+      <li><span class="box"></span><div><b>Planilha ou caderno próprio</b> — se já anota algo à parte (mesmo que incompleto), traz um exemplo.</div></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">02</span> Ficha técnica e custo dos produtos</h2>
+    <p class="why">Sem isso não dá pra calcular margem por sabor/produto — só faturamento bruto.</p>
+    <ul class="items">
+      <li><span class="box"></span><div><b>Ficha técnica</b> — tem o custo de ingrediente calculado por pizza/produto, nem que seja no papel?<span class="hint">Ex.: quanto de queijo, molho, massa entra em cada tamanho, e o preço pago em cada insumo.</span></div></li>
+      <li><span class="box"></span><div><b>Cardápio atual</b> — lista de produtos e preços de venda de hoje.</div></li>
+      <li><span class="box"></span><div><b>Fornecedores</b> — com que frequência os preços de insumo mudam? (define se dá pra fixar custo ou precisa atualizar sempre)</div></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">03</span> As perguntas que ele quer responder</h2>
+    <p class="why">Marca (ou risca) as que fazem sentido pro negócio dele — isso vira a base dos indicadores do painel.</p>
+    <div class="qgrid">
+      <div class="q">Qual sabor vende mais e qual dá mais lucro (nem sempre é o mesmo)</div>
+      <div class="q">Qual o CMV — quanto do faturamento vira custo de ingrediente</div>
+      <div class="q">Ticket médio por pedido, balcão × delivery</div>
+      <div class="q">Horário e dia da semana de mais movimento</div>
+      <div class="q">Quanto cada app de delivery cobra de taxa, no fim do mês</div>
+      <div class="q">Desperdício/perda de insumo</div>
+      <div class="q">Comparar mês a mês se está crescendo ou não</div>
+      <div class="q">Outra pergunta que ele já queira responder há tempos</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">04</span> Rotina de uso</h2>
+    <p class="why">Ajuda a decidir a cara do painel — resumo rápido de celular é bem diferente de relatório detalhado de computador.</p>
+    <ul class="items">
+      <li><span class="box"></span><div><b>Quem vai olhar</b> — só ele, ou também sócio/gerente?</div></li>
+      <li><span class="box"></span><div><b>Com que frequência</b> — todo dia no fechamento de caixa, ou só resumo semanal/mensal?</div></li>
+      <li><span class="box"></span><div><b>Onde</b> — celular, computador da loja, os dois?</div></li>
+    </ul>
+  </section>
+
+  <div class="footer">
+    <span>Traz isso na nossa conversa — o que não souber de cabeça, a gente resolve junto olhando os sistemas que ele já usa.</span>
+    <span class="brand">Italo · Painel PCM</span>
+  </div>
+</div>
