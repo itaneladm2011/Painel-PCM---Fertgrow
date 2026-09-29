@@ -1909,7 +1909,7 @@ function render() {
       b.innerHTML = `${esc(shortTitle(v.title))}` + (code ? `<span class="code-tag">${esc(code)}</span>` : "");
     }
     b.title = v.title;
-    b.addEventListener("click", ()=>{ viewIdx=i; monthIdx=0; render(); });
+    b.addEventListener("click", ()=>{ viewIdx=i; render(); }); // mantém o mês selecionado ao trocar de conta
     groupTabs.appendChild(b);
   });
 
