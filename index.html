@@ -499,6 +499,10 @@
         <div class="sidebar-subtitle">Painel de gestão - PCM manutenção fabril</div>
       </div>
       <nav class="primary-nav">
+        <button class="primary-nav-item" id="navGeral" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          <span>Painel Geral</span>
+        </button>
         <button class="primary-nav-item active" id="navCustos" type="button">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>
           <span>Controle de Custos</span>
@@ -559,6 +563,58 @@
           <svg id="themeToggleIconM" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         </button>
         <img class="header-logo" id="headerLogo" alt="Fertgrow">
+      </div>
+    </div>
+
+    <div id="panelGeral" style="display:none;">
+      <div class="panel no-collapse" style="text-align:center;padding:22px 18px;">
+        <div class="panel-title" style="justify-content:center;font-size:15px;">Painel Geral — Gestão da Manutenção · Ciclo 26/27</div>
+        <p class="empty-text" style="margin:0;">Resumo consolidado dos indicadores de Custos, Disponibilidade, Programação, Solicitações de Serviço e Preventivas — tudo numa tela só.</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>
+          Controle de Custos
+          <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('custos')">Ver painel completo →</button>
+        </div>
+        <div class="kpi-row" id="geralCustosRow"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          Indicadores de Disponibilidade
+          <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('disponibilidade')">Ver painel completo →</button>
+        </div>
+        <div class="kpi-row" id="geralDispRow"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg>
+          Indicadores de Programação
+          <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('programacao')">Ver painel completo →</button>
+        </div>
+        <div class="kpi-row" id="geralProgRow"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+          Solicitações de Serviço
+          <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('solicitacoes')">Ver painel completo →</button>
+        </div>
+        <div class="kpi-row" id="geralSolicRow"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="2.2" height="2.2"/><rect x="10" y="13" width="2.2" height="2.2"/><rect x="14" y="13" width="2.2" height="2.2"/></svg>
+          Mapa de 52 Semanas — Preventivas
+          <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('preventivas')">Ver painel completo →</button>
+        </div>
+        <div class="kpi-row" id="geralPreventRow"></div>
       </div>
     </div>
 
@@ -1316,6 +1372,10 @@
       </div>
     </div>
     <nav class="mobile-tabbar" id="mobileTabbar">
+      <button class="mobile-tab-item" id="navGeralM" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        <span>Geral</span>
+      </button>
       <button class="mobile-tab-item active" id="navCustosM" type="button">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>
         <span>Custos</span>
@@ -5905,8 +5965,142 @@ document.getElementById("planoManualForm").addEventListener("submit", (e) => {
 });
 document.getElementById("btnCancelPlanoManual").addEventListener("click", () => resetPlanoManualForm());
 
+/* ============ Painel Geral \u2014 resumo consolidado dos 5 pain\u00e9is de indicadores ============
+   Reaproveita as mesmas fun\u00e7\u00f5es de c\u00e1lculo j\u00e1 usadas em cada painel individual, sobre o ciclo
+   inteiro (2026-07-01 at\u00e9 hoje), pra garantir que os n\u00fameros aqui batem com os dos pain\u00e9is
+   detalhados \u2014 sem duplicar l\u00f3gica de neg\u00f3cio, s\u00f3 monta o resumo. */
+function renderPainelGeral() {
+  const emptyCard = (msg) => `<div class="kpi-card"><div class="kpi-sub">${esc(msg)}</div></div>`;
+  const cycleStart = dParseIso("2026-07-01");
+  const today = dOnly(new Date());
+
+  // ---- Custos (usa o total consolidado do ciclo, independente da conta/m\u00eas selecionados no painel) ----
+  const custosRow = document.getElementById("geralCustosRow");
+  if (typeof DATA !== "undefined" && DATA && DATA.consolidated) {
+    const c = DATA.consolidated.ciclo;
+    const saldo = c.orcado - c.realizado;
+    const ader = c.orcado ? (c.realizado / c.orcado) * 100 : 0;
+    custosRow.innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label">Or\u00e7ado no ciclo</div>
+        <div class="kpi-value">${fmtCompact(c.orcado)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_REALIZADO}">Realizado no ciclo</div>
+        <div class="kpi-value">${fmtCompact(c.realizado)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${saldo >= 0 ? COLOR_REALIZADO : COLOR_SALDO_NEG}">Saldo</div>
+        <div class="kpi-value">${fmtCompact(saldo)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Ader\u00eancia ao or\u00e7ado</div>
+        <div class="kpi-value">${fmtPct(ader)}</div>
+      </div>
+    `;
+  } else {
+    custosRow.innerHTML = emptyCard("Sem dados de Custos carregados ainda.");
+  }
+
+  // ---- Disponibilidade (ciclo inteiro dispon\u00edvel, do primeiro registro at\u00e9 hoje) ----
+  const dispRow = document.getElementById("geralDispRow");
+  if (typeof dispData !== "undefined" && dispData && dispData.records && dispData.records.length) {
+    let minD = dispData.records[0].date;
+    dispData.records.forEach(r => { if (r.date < minD) minD = r.date; });
+    const plantCount = Math.max(1, (dispData.plants || []).length);
+    const range = computeDispRange(dispData.records, dOnly(minD), today, plantCount);
+    dispRow.innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_REALIZADO}">Disponibilidade</div>
+        <div class="kpi-value">${fmtPct(range.disponibilidade)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Horas de falha</div>
+        <div class="kpi-value">${fmtHM(range.totalHours)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Registros de falha</div>
+        <div class="kpi-value">${range.count}</div>
+      </div>
+    `;
+  } else {
+    dispRow.innerHTML = emptyCard("Sem dados de Disponibilidade carregados ainda.");
+  }
+
+  // ---- Programa\u00e7\u00e3o ----
+  const progRow = document.getElementById("geralProgRow");
+  if (typeof progData !== "undefined" && progData && progData.records && progData.records.length) {
+    const range = computeProgRange(progData.records, cycleStart, today);
+    progRow.innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_REALIZADO}">Ader\u00eancia \u00e0 programa\u00e7\u00e3o</div>
+        <div class="kpi-value">${fmtPct(range.aderencia)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Fora de programa\u00e7\u00e3o</div>
+        <div class="kpi-value">${range.foraDeProgramacao}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Ordens programadas</div>
+        <div class="kpi-value">${range.programadas}</div>
+      </div>
+    `;
+  } else {
+    progRow.innerHTML = emptyCard("Sem dados de Programa\u00e7\u00e3o carregados ainda.");
+  }
+
+  // ---- Solicita\u00e7\u00f5es de Servi\u00e7o ----
+  const solicRow = document.getElementById("geralSolicRow");
+  if (typeof solicitacoesData !== "undefined" && solicitacoesData && solicitacoesData.records && solicitacoesData.records.length) {
+    const range = computeSolicRange(solicitacoesData.records, cycleStart, today);
+    solicRow.innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label">Total no ciclo</div>
+        <div class="kpi-value">${range.total}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_REALIZADO}">Atendidas</div>
+        <div class="kpi-value">${fmtPct(range.pctAtendidas)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Pendentes</div>
+        <div class="kpi-value">${range.pendentes}</div>
+      </div>
+    `;
+  } else {
+    solicRow.innerHTML = emptyCard("Sem dados de Solicita\u00e7\u00f5es carregados ainda.");
+  }
+
+  // ---- Mapa de 52 Semanas / Preventivas ----
+  const preventRow = document.getElementById("geralPreventRow");
+  if (typeof preventivasData !== "undefined" && preventivasData && preventivasData.records && preventivasData.records.length) {
+    const recs = preventivasData.records;
+    const concluidas = recs.filter(o => preventOcorrenciaEstado(o) === "concluida").length;
+    const atrasadas = recs.filter(o => preventOcorrenciaEstado(o) === "atrasada").length;
+    const vencidas = concluidas + atrasadas;
+    const ader = vencidas > 0 ? (concluidas / vencidas) * 100 : null;
+    preventRow.innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_REALIZADO}">Ader\u00eancia geral</div>
+        <div class="kpi-value">${ader === null ? "\u2014" : fmtPct(ader)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Atrasadas agora</div>
+        <div class="kpi-value">${atrasadas}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Conclu\u00eddas no ciclo</div>
+        <div class="kpi-value">${concluidas}</div>
+      </div>
+    `;
+  } else {
+    preventRow.innerHTML = emptyCard("Sem dados de Preventivas carregados ainda.");
+  }
+}
+
 /* ============ navega\u00e7\u00e3o entre pain\u00e9is (Custos / Disponibilidade) ============ */
 function switchApp(name) {
+  document.getElementById("panelGeral").style.display = name === "geral" ? "" : "none";
   document.getElementById("panelCustos").style.display = name === "custos" ? "" : "none";
   document.getElementById("panelDisponibilidade").style.display = name === "disponibilidade" ? "" : "none";
   document.getElementById("panelAnaliseFalhas").style.display = name === "analise" ? "" : "none";
@@ -5914,6 +6108,7 @@ function switchApp(name) {
   document.getElementById("panelPlanoAcao").style.display = name === "planoacao" ? "" : "none";
   document.getElementById("panelSolicitacoes").style.display = name === "solicitacoes" ? "" : "none";
   document.getElementById("panelPreventivas").style.display = name === "preventivas" ? "" : "none";
+  document.getElementById("navGeral").classList.toggle("active", name === "geral");
   document.getElementById("navCustos").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidade").classList.toggle("active", name === "disponibilidade");
   document.getElementById("navAnaliseFalhas").classList.toggle("active", name === "analise");
@@ -5921,6 +6116,7 @@ function switchApp(name) {
   document.getElementById("navPlanoAcao").classList.toggle("active", name === "planoacao");
   document.getElementById("navSolicitacoes").classList.toggle("active", name === "solicitacoes");
   document.getElementById("navPreventivas").classList.toggle("active", name === "preventivas");
+  document.getElementById("navGeralM").classList.toggle("active", name === "geral");
   document.getElementById("navCustosM").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidadeM").classList.toggle("active", name === "disponibilidade");
   document.getElementById("navAnaliseFalhasM").classList.toggle("active", name === "analise");
@@ -5929,7 +6125,9 @@ function switchApp(name) {
   document.getElementById("navSolicitacoesM").classList.toggle("active", name === "solicitacoes");
   document.getElementById("navPreventivasM").classList.toggle("active", name === "preventivas");
   window.scrollTo(0, 0);
-  document.getElementById("pageTitle").textContent = name === "disponibilidade"
+  document.getElementById("pageTitle").textContent = name === "geral"
+    ? "Painel Geral — Gestão da Manutenção"
+    : name === "disponibilidade"
     ? "Painel de acompanhamento - Disponibilidade de ativos"
     : name === "analise"
     ? "Análise de Falhas — Causa Raiz"
@@ -5946,7 +6144,10 @@ function switchApp(name) {
   if (name === "planoacao") renderPlanoAcao();
   if (name === "solicitacoes" && solicitacoesData) renderSolicitacoes();
   if (name === "preventivas" && preventivasData) renderPreventivas();
+  if (name === "geral") renderPainelGeral();
 }
+document.getElementById("navGeral").addEventListener("click", () => switchApp("geral"));
+document.getElementById("navGeralM").addEventListener("click", () => switchApp("geral"));
 document.getElementById("navCustos").addEventListener("click", () => switchApp("custos"));
 document.getElementById("navDisponibilidade").addEventListener("click", () => switchApp("disponibilidade"));
 document.getElementById("navAnaliseFalhas").addEventListener("click", () => switchApp("analise"));
