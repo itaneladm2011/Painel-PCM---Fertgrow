@@ -1784,6 +1784,19 @@ function renderTrendChart(months, highlightLabel) {
     return { anchor, lxOff, dy };
   }
 
+  // com poucos meses (visão trimestral etc.) rotular todo ponto já funciona bem — mas no ciclo
+  // inteiro (12 meses × 2 séries) isso vira ruído ilegível. A partir de 7 meses, só rotula os
+  // pontos que contam a história (extremos, mês em destaque, e o último com execução real do
+  // realizado) — o resto fica só no hover, que já mostra o valor exato de cada mês.
+  const denseLabels = n <= 6;
+  const lastRealizadoIdx = months.reduce((acc, m, idx) => m.realizado > 0 ? idx : acc, -1);
+  function shouldLabel(key, i) {
+    if (denseLabels) return true;
+    if (i === hIdx || i === 0 || i === n - 1) return true;
+    if (key === "realizado" && i === lastRealizadoIdx) return true;
+    return false;
+  }
+
   months.forEach((m,i)=>{
     const px = xScale(i);
     const cyO = cysO[i], cyR = cysR[i];
@@ -1811,12 +1824,12 @@ function renderTrendChart(months, highlightLabel) {
       else { offR = {...offR, dy:dyForTopSeries}; offO = {...offO, dy:dyForBottomSeries}; }
     }
 
-    if (m.orcado > 0) {
+    if (m.orcado > 0 && shouldLabel("orcado", i)) {
       const lbl = el("text",{x:px+offO.lxOff,y:cyO+offO.dy,"text-anchor":offO.anchor,"font-size":8,fill:COLOR_ORCADO,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
       lbl.textContent = fmtCompact(m.orcado);
       svg.appendChild(lbl);
     }
-    if (m.realizado > 0) {
+    if (m.realizado > 0 && shouldLabel("realizado", i)) {
       const lbl = el("text",{x:px+offR.lxOff,y:cyR+offR.dy,"text-anchor":offR.anchor,"font-size":8,fill:COLOR_REALIZADO,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
       lbl.textContent = fmtCompact(m.realizado);
       svg.appendChild(lbl);
