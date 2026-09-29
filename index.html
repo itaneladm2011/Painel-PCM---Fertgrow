@@ -106,6 +106,7 @@
 
   .app-content{flex:1;min-width:0;}
   .content-inner{max-width:1180px;margin:0 auto;padding:28px 28px 60px;}
+  .content-inner.geral-wide{max-width:1680px;}
 
   .header{margin-bottom:22px;padding:20px 24px;border-radius:14px;background:var(--realizado);border-bottom:3px solid var(--lime);display:flex;align-items:center;justify-content:space-between;gap:16px;}
   .header-logo{height:34px;width:auto;display:block;flex-shrink:0;background:#fff;padding:6px 10px;border-radius:8px;box-sizing:content-box;}
@@ -232,6 +233,10 @@
 
   .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
   @media (max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr);}}
+  .geral-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
+  .geral-tile-wide{grid-column:1 / -1;}
+  .geral-tile .kpi-row{grid-template-columns:repeat(2,1fr);}
+  @media (max-width:900px){.geral-grid{grid-template-columns:1fr;}}
   #planoKpiRow{grid-template-columns:repeat(5,1fr);}
   #solicKpiRow{grid-template-columns:repeat(6,1fr);}
   @media (max-width:900px){#planoKpiRow,#solicKpiRow{grid-template-columns:repeat(2,1fr);}#planoKpiRow .kpi-card:first-child{grid-column:1 / -1;}}
@@ -572,49 +577,56 @@
         <p class="empty-text" style="margin:0;">Resumo consolidado dos indicadores de Custos, Disponibilidade, Programação, Solicitações de Serviço e Preventivas — tudo numa tela só.</p>
       </div>
 
-      <div class="panel">
-        <div class="panel-title">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>
-          Controle de Custos
-          <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('custos')">Ver painel completo →</button>
+      <div class="geral-grid">
+        <div class="panel geral-tile">
+          <div class="panel-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>
+            Controle de Custos
+            <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('custos')">Ver painel completo →</button>
+          </div>
+          <div class="kpi-row" id="geralCustosRow"></div>
+          <div class="chart-wrap"><svg id="geralCustosChart" width="100%" viewBox="0 0 900 300" preserveAspectRatio="xMidYMid meet"></svg></div>
         </div>
-        <div class="kpi-row" id="geralCustosRow"></div>
-      </div>
 
-      <div class="panel">
-        <div class="panel-title">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-          Indicadores de Disponibilidade
-          <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('disponibilidade')">Ver painel completo →</button>
+        <div class="panel geral-tile">
+          <div class="panel-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            Indicadores de Disponibilidade
+            <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('disponibilidade')">Ver painel completo →</button>
+          </div>
+          <div class="kpi-row" id="geralDispRow"></div>
+          <div class="chart-wrap"><svg id="geralDispChart" width="100%" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg></div>
         </div>
-        <div class="kpi-row" id="geralDispRow"></div>
-      </div>
 
-      <div class="panel">
-        <div class="panel-title">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg>
-          Indicadores de Programação
-          <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('programacao')">Ver painel completo →</button>
+        <div class="panel geral-tile">
+          <div class="panel-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg>
+            Indicadores de Programação
+            <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('programacao')">Ver painel completo →</button>
+          </div>
+          <div class="kpi-row" id="geralProgRow"></div>
+          <div class="chart-wrap"><svg id="geralProgChart" width="100%" viewBox="0 0 640 240" preserveAspectRatio="xMidYMid meet"></svg></div>
         </div>
-        <div class="kpi-row" id="geralProgRow"></div>
-      </div>
 
-      <div class="panel">
-        <div class="panel-title">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
-          Solicitações de Serviço
-          <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('solicitacoes')">Ver painel completo →</button>
+        <div class="panel geral-tile">
+          <div class="panel-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+            Solicitações de Serviço
+            <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('solicitacoes')">Ver painel completo →</button>
+          </div>
+          <div class="kpi-row" id="geralSolicRow"></div>
+          <div class="chart-wrap"><svg id="geralSolicChart" width="100%" viewBox="0 0 500 260" preserveAspectRatio="xMidYMid meet"></svg></div>
         </div>
-        <div class="kpi-row" id="geralSolicRow"></div>
-      </div>
 
-      <div class="panel">
-        <div class="panel-title">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="2.2" height="2.2"/><rect x="10" y="13" width="2.2" height="2.2"/><rect x="14" y="13" width="2.2" height="2.2"/></svg>
-          Mapa de 52 Semanas — Preventivas
-          <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('preventivas')">Ver painel completo →</button>
+        <div class="panel geral-tile geral-tile-wide">
+          <div class="panel-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="2.2" height="2.2"/><rect x="10" y="13" width="2.2" height="2.2"/><rect x="14" y="13" width="2.2" height="2.2"/></svg>
+            Mapa de 52 Semanas — Preventivas
+            <button type="button" class="btn ghost small" style="margin-left:auto;" onclick="switchApp('preventivas')">Ver painel completo →</button>
+          </div>
+          <div class="kpi-row" id="geralPreventRow"></div>
+          <div class="chart-wrap"><svg id="geralPreventChart" width="100%" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet"></svg></div>
         </div>
-        <div class="kpi-row" id="geralPreventRow"></div>
       </div>
     </div>
 
@@ -1765,8 +1777,8 @@ function renderBarChart(items) {
 }
 
 /* ============ Trend chart (line + área saldo) ao longo do ciclo ============ */
-function renderTrendChart(months, highlightLabel) {
-  const svg = document.getElementById("trendChart");
+function renderTrendChart(months, highlightLabel, svgId) {
+  const svg = document.getElementById(svgId || "trendChart");
   svg.innerHTML = "";
   const M = isMobileView();
   const W = M ? 620 : 900, H = M ? 260 : 300;
@@ -4459,8 +4471,8 @@ function progTooltipTitle(item, granularity) {
 }
 
 /* ============ gr\u00e1fico: ader\u00eancia semanal/di\u00e1ria (linha) ============ */
-function renderProgWeeklyChart(weeks, granularity) {
-  const svg = document.getElementById("progWeeklyChart");
+function renderProgWeeklyChart(weeks, granularity, svgId) {
+  const svg = document.getElementById(svgId || "progWeeklyChart");
   svg.innerHTML = "";
   if (!weeks.length) return;
   const M = isMobileView();
@@ -6002,6 +6014,8 @@ function renderPainelGeral() {
         <div class="kpi-sub">realizado \u00f7 or\u00e7ado</div>
       </div>
     `;
+    const trendData = DATA.consolidated.months.map(m => ({label: m.label, orcado: m.orcado, realizado: m.realizado, saldo: m.saldo}));
+    renderTrendChart(trendData, null, "geralCustosChart");
   } else {
     custosRow.innerHTML = emptyCard("Sem dados de Custos carregados ainda.");
   }
@@ -6037,6 +6051,14 @@ function renderPainelGeral() {
         <div class="kpi-sub">dia(s) com \u2265 ${RCA_TRIGGER}h no per\u00edodo</div>
       </div>
     `;
+    const plantStats = computePlantStats(rangeStats.records, rangeStats.days, dispData.plants);
+    const geralStats = {
+      planta: "GERAL", count: rangeStats.count, hours: rangeStats.totalHours,
+      mttr: rangeStats.count > 0 ? rangeStats.totalHours / rangeStats.count : 0,
+      mtbf: rangeStats.count > 0 ? Math.max(0, rangeStats.poolHours - rangeStats.totalHours) / rangeStats.count : Math.max(0, rangeStats.poolHours),
+      disponibilidade: rangeStats.disponibilidade,
+    };
+    renderPlantBarChart("geralDispChart", [...plantStats, geralStats], "disponibilidade", COLOR_REALIZADO, fmtPct, true);
   } else {
     dispRow.innerHTML = emptyCard("Sem dados de Disponibilidade carregados ainda.");
   }
@@ -6067,6 +6089,9 @@ function renderPainelGeral() {
         <div class="kpi-sub">entre execu\u00e7\u00e3o e encerramento</div>
       </div>
     `;
+    // ciclo inteiro (>120 dias) fica ilegível por semana — mesma regra do painel real: usa granularidade mensal
+    const progSeries = computeProgMonthlySeries(progData.records, cycleStart, today);
+    renderProgWeeklyChart(progSeries, "mes", "geralProgChart");
   } else {
     progRow.innerHTML = emptyCard("Sem dados de Programa\u00e7\u00e3o carregados ainda.");
   }
@@ -6108,6 +6133,8 @@ function renderPainelGeral() {
         <div class="kpi-sub">${range.countEncerramento} solicita\u00e7\u00e3o(\u00f5es) com OS encerrada</div>
       </div>
     `;
+    const byPlanta = computeSolicByPlanta(range.records);
+    renderSolicPlantaQtdChart("geralSolicChart", byPlanta);
   } else {
     solicRow.innerHTML = emptyCard("Sem dados de Solicita\u00e7\u00f5es carregados ainda.");
   }
@@ -6144,6 +6171,7 @@ function renderPainelGeral() {
         <div class="kpi-sub">previstas desde o in\u00edcio do ciclo</div>
       </div>
     `;
+    renderPreventMapaChart("geralPreventChart", planos, weeks);
   } else {
     preventRow.innerHTML = emptyCard("Sem dados de Preventivas carregados ainda.");
   }
@@ -6152,6 +6180,7 @@ function renderPainelGeral() {
 /* ============ navega\u00e7\u00e3o entre pain\u00e9is (Custos / Disponibilidade) ============ */
 function switchApp(name) {
   document.getElementById("panelGeral").style.display = name === "geral" ? "" : "none";
+  document.querySelector(".content-inner").classList.toggle("geral-wide", name === "geral");
   document.getElementById("panelCustos").style.display = name === "custos" ? "" : "none";
   document.getElementById("panelDisponibilidade").style.display = name === "disponibilidade" ? "" : "none";
   document.getElementById("panelAnaliseFalhas").style.display = name === "analise" ? "" : "none";
