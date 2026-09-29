@@ -5974,60 +5974,74 @@ function renderPainelGeral() {
   const cycleStart = dParseIso("2026-07-01");
   const today = dOnly(new Date());
 
-  // ---- Custos (usa o total consolidado do ciclo, independente da conta/m\u00eas selecionados no painel) ----
+  // ---- Custos: mesmo card do painel de Custos (Or\u00e7ado / Realizado / Saldo remanescente / Ader\u00eancia),
+  // usando o total consolidado do ciclo (independente da conta/m\u00eas selecionados no painel de Custos) ----
   const custosRow = document.getElementById("geralCustosRow");
   if (typeof DATA !== "undefined" && DATA && DATA.consolidated) {
-    const c = DATA.consolidated.ciclo;
-    const saldo = c.orcado - c.realizado;
-    const ader = c.orcado ? (c.realizado / c.orcado) * 100 : 0;
+    const kpi = DATA.consolidated.ciclo;
+    const ader = kpi.orcado ? (kpi.realizado / kpi.orcado) * 100 : 0;
     custosRow.innerHTML = `
       <div class="kpi-card">
-        <div class="kpi-label">Or\u00e7ado no ciclo</div>
-        <div class="kpi-value">${fmtCompact(c.orcado)}</div>
+        <div class="kpi-label" style="color:${COLOR_ORCADO}">Or\u00e7ado</div>
+        <div class="kpi-value">${fmtBRL(kpi.orcado)}</div>
+        <div class="kpi-sub">previsto no ciclo</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label" style="color:${COLOR_REALIZADO}">Realizado no ciclo</div>
-        <div class="kpi-value">${fmtCompact(c.realizado)}</div>
+        <div class="kpi-label" style="color:${COLOR_REALIZADO}">Realizado</div>
+        <div class="kpi-value">${fmtBRL(kpi.realizado)}</div>
+        <div class="kpi-sub">executado at\u00e9 o momento</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label" style="color:${saldo >= 0 ? COLOR_REALIZADO : COLOR_SALDO_NEG}">Saldo</div>
-        <div class="kpi-value">${fmtCompact(saldo)}</div>
+        <div class="kpi-label" style="color:${kpi.saldo<0?COLOR_SALDO_NEG:COLOR_SALDO_POS}">Saldo remanescente</div>
+        <div class="kpi-value" style="color:${kpi.saldo<0?COLOR_SALDO_NEG:'#221610'}">${fmtBRL(kpi.saldo)}</div>
+        <div class="kpi-sub">${kpi.saldo<0?"or\u00e7amento estourado":"dispon\u00edvel a executar"}</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">Ader\u00eancia ao or\u00e7ado</div>
+        <div class="kpi-label">Ader\u00eancia</div>
         <div class="kpi-value">${fmtPct(ader)}</div>
+        <div class="kpi-sub">realizado \u00f7 or\u00e7ado</div>
       </div>
     `;
   } else {
     custosRow.innerHTML = emptyCard("Sem dados de Custos carregados ainda.");
   }
 
-  // ---- Disponibilidade (ciclo inteiro dispon\u00edvel, do primeiro registro at\u00e9 hoje) ----
+  // ---- Disponibilidade: mesmo card do painel (Disponibilidade / Horas de falha / N\u00ba de falhas /
+  // Falhas acima do gatilho), sobre o ciclo inteiro dispon\u00edvel (do primeiro registro at\u00e9 hoje) ----
   const dispRow = document.getElementById("geralDispRow");
   if (typeof dispData !== "undefined" && dispData && dispData.records && dispData.records.length) {
     let minD = dispData.records[0].date;
     dispData.records.forEach(r => { if (r.date < minD) minD = r.date; });
     const plantCount = Math.max(1, (dispData.plants || []).length);
-    const range = computeDispRange(dispData.records, dOnly(minD), today, plantCount);
+    const rangeStats = computeDispRange(dispData.records, dOnly(minD), today, plantCount);
+    const dailySeries = computeDailySeries(dispData.records, dOnly(minD), today);
     dispRow.innerHTML = `
       <div class="kpi-card">
         <div class="kpi-label" style="color:${COLOR_REALIZADO}">Disponibilidade</div>
-        <div class="kpi-value">${fmtPct(range.disponibilidade)}</div>
+        <div class="kpi-value">${fmtPct(rangeStats.disponibilidade)}</div>
+        <div class="kpi-sub">base: ${rangeStats.days} dia(s) \u00d7 16h</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Horas de falha</div>
-        <div class="kpi-value">${fmtHM(range.totalHours)}</div>
+        <div class="kpi-value">${fmtHM(rangeStats.totalHours)}</div>
+        <div class="kpi-sub">${fmtHoursShort(rangeStats.totalHours)} no per\u00edodo</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">Registros de falha</div>
-        <div class="kpi-value">${range.count}</div>
+        <div class="kpi-label">N\u00ba de falhas</div>
+        <div class="kpi-value">${rangeStats.count}</div>
+        <div class="kpi-sub">registros no per\u00edodo</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Falhas acima do gatilho</div>
+        <div class="kpi-value">${dailySeries.filter(d => d.hours >= RCA_TRIGGER).length}</div>
+        <div class="kpi-sub">dia(s) com \u2265 ${RCA_TRIGGER}h no per\u00edodo</div>
       </div>
     `;
   } else {
     dispRow.innerHTML = emptyCard("Sem dados de Disponibilidade carregados ainda.");
   }
 
-  // ---- Programa\u00e7\u00e3o ----
+  // ---- Programa\u00e7\u00e3o: mesmo card do painel (Ader\u00eancia / Fora de programa\u00e7\u00e3o / Desvio / Tempo m\u00e9dio de baixa) ----
   const progRow = document.getElementById("geralProgRow");
   if (typeof progData !== "undefined" && progData && progData.records && progData.records.length) {
     const range = computeProgRange(progData.records, cycleStart, today);
@@ -6035,62 +6049,99 @@ function renderPainelGeral() {
       <div class="kpi-card">
         <div class="kpi-label" style="color:${COLOR_REALIZADO}">Ader\u00eancia \u00e0 programa\u00e7\u00e3o</div>
         <div class="kpi-value">${fmtPct(range.aderencia)}</div>
+        <div class="kpi-sub">${range.executadasNoPrazo} de ${range.programadas} programada(s) no prazo</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Fora de programa\u00e7\u00e3o</div>
         <div class="kpi-value">${range.foraDeProgramacao}</div>
+        <div class="kpi-sub">${fmtPct(range.pctForaDeProgramacao)} das ${range.programadas} programada(s)</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">Ordens programadas</div>
-        <div class="kpi-value">${range.programadas}</div>
+        <div class="kpi-label">Desvio prog. \u00d7 execu\u00e7\u00e3o</div>
+        <div class="kpi-value">${fmtDaysSigned(range.desvioMedioDias)}</div>
+        <div class="kpi-sub">m\u00e9dia entre as ${range.desvioCount} ordem(ns) fora do prazo</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Tempo m\u00e9dio de baixa</div>
+        <div class="kpi-value">${fmtDaysPlain(range.tempoMedioBaixaDias)}</div>
+        <div class="kpi-sub">entre execu\u00e7\u00e3o e encerramento</div>
       </div>
     `;
   } else {
     progRow.innerHTML = emptyCard("Sem dados de Programa\u00e7\u00e3o carregados ainda.");
   }
 
-  // ---- Solicita\u00e7\u00f5es de Servi\u00e7o ----
+  // ---- Solicita\u00e7\u00f5es de Servi\u00e7o: os mesmos 6 cards do painel ----
   const solicRow = document.getElementById("geralSolicRow");
   if (typeof solicitacoesData !== "undefined" && solicitacoesData && solicitacoesData.records && solicitacoesData.records.length) {
     const range = computeSolicRange(solicitacoesData.records, cycleStart, today);
+    const rangeLabel = `${dBR(cycleStart)} a ${dBR(today)}`;
     solicRow.innerHTML = `
       <div class="kpi-card">
-        <div class="kpi-label">Total no ciclo</div>
+        <div class="kpi-label">Solicita\u00e7\u00f5es no per\u00edodo</div>
         <div class="kpi-value">${range.total}</div>
+        <div class="kpi-sub">abertas entre ${rangeLabel}</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label" style="color:${COLOR_REALIZADO}">Atendidas</div>
-        <div class="kpi-value">${fmtPct(range.pctAtendidas)}</div>
+        <div class="kpi-value">${range.atendidas}</div>
+        <div class="kpi-sub">${fmtPct(range.pctAtendidas)} do total \u00b7 OS j\u00e1 aberta</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Pendentes</div>
         <div class="kpi-value">${range.pendentes}</div>
+        <div class="kpi-sub">ainda sem OS aberta</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:#948F86">Arquivadas</div>
+        <div class="kpi-value">${range.arquivadas}</div>
+        <div class="kpi-sub">${fmtPct(range.pctArquivadas)} do total \u00b7 indevida/desnecess\u00e1ria</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Tempo m\u00e9dio de atendimento</div>
+        <div class="kpi-value">${range.diasParaAtender === null ? "\u2014" : fmtDaysPlain(range.diasParaAtender)}</div>
+        <div class="kpi-sub">${range.countAtendimento} solicita\u00e7\u00e3o(\u00f5es) com OS aberta</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Tempo m\u00e9dio de encerramento</div>
+        <div class="kpi-value">${range.diasParaEncerrar === null ? "\u2014" : fmtDaysPlain(range.diasParaEncerrar)}</div>
+        <div class="kpi-sub">${range.countEncerramento} solicita\u00e7\u00e3o(\u00f5es) com OS encerrada</div>
       </div>
     `;
   } else {
     solicRow.innerHTML = emptyCard("Sem dados de Solicita\u00e7\u00f5es carregados ainda.");
   }
 
-  // ---- Mapa de 52 Semanas / Preventivas ----
+  // ---- Mapa de 52 Semanas / Preventivas: os mesmos 4 cards do painel ----
   const preventRow = document.getElementById("geralPreventRow");
   if (typeof preventivasData !== "undefined" && preventivasData && preventivasData.records && preventivasData.records.length) {
-    const recs = preventivasData.records;
-    const concluidas = recs.filter(o => preventOcorrenciaEstado(o) === "concluida").length;
-    const atrasadas = recs.filter(o => preventOcorrenciaEstado(o) === "atrasada").length;
-    const vencidas = concluidas + atrasadas;
-    const ader = vencidas > 0 ? (concluidas / vencidas) * 100 : null;
+    const weeks = computePreventWeeks();
+    const planos = computePreventByEquipamento(preventivasData.records, weeks);
+    const totalOcorrencias = planos.reduce((s, p) => s + p.total, 0);
+    const totalConcluidas = planos.reduce((s, p) => s + p.concluidas, 0);
+    const totalAtrasadas = planos.reduce((s, p) => s + p.atrasadas, 0);
+    const totalVencidas = totalConcluidas + totalAtrasadas;
+    const aderenciaGeral = totalVencidas > 0 ? (totalConcluidas / totalVencidas) * 100 : null;
     preventRow.innerHTML = `
       <div class="kpi-card">
+        <div class="kpi-label">Planos monitorados</div>
+        <div class="kpi-value">${planos.length}</div>
+        <div class="kpi-sub">${new Set(planos.map(p => p.equipLabel)).size} equipamento(s) \u00b7 plano \u00d7 equipamento, no ciclo</div>
+      </div>
+      <div class="kpi-card">
         <div class="kpi-label" style="color:${COLOR_REALIZADO}">Ader\u00eancia geral</div>
-        <div class="kpi-value">${ader === null ? "\u2014" : fmtPct(ader)}</div>
+        <div class="kpi-value">${aderenciaGeral === null ? "\u2014" : fmtPct(aderenciaGeral)}</div>
+        <div class="kpi-sub">${totalConcluidas} de ${totalVencidas} ocorr\u00eancia(s) j\u00e1 vencida(s)</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Atrasadas agora</div>
-        <div class="kpi-value">${atrasadas}</div>
+        <div class="kpi-value">${totalAtrasadas}</div>
+        <div class="kpi-sub">ocorr\u00eancias vencidas sem OS encerrada</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">Conclu\u00eddas no ciclo</div>
-        <div class="kpi-value">${concluidas}</div>
+        <div class="kpi-label">Ocorr\u00eancias no ciclo</div>
+        <div class="kpi-value">${totalOcorrencias}</div>
+        <div class="kpi-sub">previstas desde o in\u00edcio do ciclo</div>
       </div>
     `;
   } else {
