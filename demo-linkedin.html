@@ -1380,6 +1380,7 @@
       </div>
     </div>
 
+    <footer>DADOS — CONTROLE ORÇADO × REALIZADO · 502 · CICLO 26/27</footer>
       </div>
     </div>
     <nav class="mobile-tabbar" id="mobileTabbar">
@@ -1440,8 +1441,8 @@ const DISP_STORAGE_KEY = "painelDisponibilidade_data_v1";
 const DISP_STORAGE_META_KEY = "painelDisponibilidade_meta_v1";
 
 /* ============ Supabase (backend compartilhado) ============ */
-const SUPABASE_URL = "https://eqrzwybphzypdllywvbl.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_cfftCeIOUM1xcQ_BD_0MnA_ZE4tmLVs";
+const SUPABASE_URL = "https://demo-desativado.invalid";
+const SUPABASE_ANON_KEY = "demo-sem-acesso-real";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const CLOUD_SYNC_KEYS = [
   "painelOrcadoRealizado_data_v1",
@@ -6622,21 +6623,228 @@ document.getElementById("btnLogout").addEventListener("click", async () => {
   await supabase.auth.signOut();
 });
 
-supabase.auth.onAuthStateChange((event, session) => {
-  if (event === "PASSWORD_RECOVERY") {
-    inPasswordRecovery = true;
-    showResetPasswordForm();
-    return;
+/* ============================================================
+   MODO DEMONSTRAÇÃO — dados 100% fictícios, gerados na hora.
+   Este arquivo NUNCA se conecta ao Supabase real (credenciais acima
+   foram substituídas por valores inválidos de propósito). Feito só
+   pra tirar print do Painel Geral sem expor números reais da empresa.
+   ============================================================ */
+(function iniciarModoDemonstracao() {
+  function mulberry32(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
   }
-  if (event === "SIGNED_OUT" || (!session && document.getElementById("appShell").style.display !== "none")) {
-    showLoginGate();
+  const rnd = mulberry32(20260929);
+  const randInt = (min, max) => Math.floor(rnd() * (max - min + 1)) + min;
+  const randFloat = (min, max) => rnd() * (max - min) + min;
+  const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+
+  const todayDemo = dOnly(new Date());
+  const cycleStartDemo = dParseIso("2026-07-01");
+  const cycleEndDemo = dParseIso("2027-06-30");
+  const MESES_CICLO = ["Jul", "Ago", "Set", "Out", "Nov", "Dez", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun"];
+  const ANOS_CICLO = [2026, 2026, 2026, 2026, 2026, 2026, 2027, 2027, 2027, 2027, 2027, 2027];
+  const monthLabelDemo = (i) => `${MESES_CICLO[i]}/${ANOS_CICLO[i]}`;
+  const hojeIdxCiclo = Math.max(0, Math.min(11, (todayDemo.getFullYear() - 2026) * 12 + todayDemo.getMonth() - 6));
+
+  // ---------------- 1) Custos ----------------
+  const gruposFake = [
+    { title: "1 - Manutenção Mecânica", contas: ["Rolamentos e Mancais", "Correias e Polias", "Peças de Reposição"] },
+    { title: "2 - Manutenção Elétrica", contas: ["Motores e Acionamentos", "Instrumentação", "Cabeamento"] },
+    { title: "3 - Serviços Terceirizados", contas: ["Mão de Obra Terceirizada", "Locação de Equipamentos", "Inspeções Especializadas"] },
+    { title: "4 - Materiais e Insumos", contas: ["Lubrificantes", "EPI", "Consumíveis Gerais"] },
+  ];
+  function gerarConta(baseMensal) {
+    const months = [];
+    for (let i = 0; i < 12; i++) {
+      const orcado = Math.round(baseMensal * randFloat(0.85, 1.15));
+      let realizado = 0;
+      if (i < hojeIdxCiclo) realizado = Math.round(orcado * randFloat(0.75, 1.15));
+      else if (i === hojeIdxCiclo) realizado = Math.round(orcado * randFloat(0.35, 0.85));
+      months.push({ label: monthLabelDemo(i), orcado, realizado, saldo: orcado - realizado });
+    }
+    const ciclo = months.reduce((acc, m) => ({ orcado: acc.orcado + m.orcado, realizado: acc.realizado + m.realizado, saldo: acc.saldo + m.saldo }), { orcado: 0, realizado: 0, saldo: 0 });
+    return { months, ciclo };
   }
-});
-supabase.auth.getSession().then(({ data }) => {
-  if (inPasswordRecovery) return; // já tratado pelo evento PASSWORD_RECOVERY acima
-  if (data && data.session) showApp();
-  else showLoginGate();
-});
+  const gruposDemo = gruposFake.map((g) => {
+    const accounts = g.contas.map((nome) => {
+      const base = randInt(15000, 60000);
+      const { months, ciclo } = gerarConta(base);
+      return { name: nome, ciclo, months };
+    });
+    const totalMonths = [];
+    for (let i = 0; i < 12; i++) {
+      const agg = { label: monthLabelDemo(i), orcado: 0, realizado: 0, saldo: 0 };
+      accounts.forEach((a) => { agg.orcado += a.months[i].orcado; agg.realizado += a.months[i].realizado; agg.saldo += a.months[i].saldo; });
+      totalMonths.push(agg);
+    }
+    const totalCiclo = accounts.reduce((acc, a) => ({ orcado: acc.orcado + a.ciclo.orcado, realizado: acc.realizado + a.ciclo.realizado, saldo: acc.saldo + a.ciclo.saldo }), { orcado: 0, realizado: 0, saldo: 0 });
+    return { title: g.title, accounts, total: { ciclo: totalCiclo, months: totalMonths } };
+  });
+  const consMonths = [];
+  for (let i = 0; i < 12; i++) {
+    const agg = { label: monthLabelDemo(i), orcado: 0, realizado: 0, saldo: 0 };
+    gruposDemo.forEach((g) => { agg.orcado += g.total.months[i].orcado; agg.realizado += g.total.months[i].realizado; agg.saldo += g.total.months[i].saldo; });
+    consMonths.push(agg);
+  }
+  const consCiclo = gruposDemo.reduce((acc, g) => ({ orcado: acc.orcado + g.total.ciclo.orcado, realizado: acc.realizado + g.total.ciclo.realizado, saldo: acc.saldo + g.total.ciclo.saldo }), { orcado: 0, realizado: 0, saldo: 0 });
+  DATA = { groups: gruposDemo, consolidated: { ciclo: consCiclo, months: consMonths } };
+
+  // ---------------- 2) Disponibilidade ----------------
+  const plantasFake = ["Planta 01", "Planta 02", "Planta 03"];
+  const falhasFake = ["Motor elétrico", "Correia transportadora", "Válvula pneumática", "Sensor de nível", "Bomba centrífuga", "Redutor de velocidade"];
+  const dispStart = dAdd(todayDemo, -90);
+  const dispRecords = [];
+  for (let d = new Date(dispStart); d <= todayDemo; d = dAdd(d, 1)) {
+    const nFalhas = rnd() < 0.55 ? randInt(0, 2) : 0;
+    for (let k = 0; k < nFalhas; k++) {
+      dispRecords.push({
+        date: new Date(d), planta: pick(plantasFake),
+        hours: Math.round(randFloat(0.4, 4.5) * 10) / 10,
+        falha: pick(falhasFake), descricao: "Falha registrada (demonstração)",
+      });
+    }
+  }
+  dispData = { records: dispRecords, plants: plantasFake, sheetName: "Demonstração" };
+
+  // ---------------- 3) Programação ----------------
+  const executantesFake = ["Equipe Própria", "Contratada A", "Contratada B"];
+  const progRecords = [];
+  let codSeq = 100;
+  for (let d = new Date(cycleStartDemo); d <= todayDemo; d = dAdd(d, 1)) {
+    const n = rnd() < 0.7 ? randInt(0, 3) : 0;
+    for (let k = 0; k < n; k++) {
+      const dataProgramacao = new Date(d);
+      const executouNoPrazo = rnd() < 0.82;
+      let dataExecucao = null, dataEncerramento = null;
+      if (rnd() < 0.9) {
+        const desvio = executouNoPrazo ? 0 : randInt(1, 5);
+        const base = dAdd(dataProgramacao, desvio);
+        dataExecucao = new Date(base.getFullYear(), base.getMonth(), base.getDate(), randInt(6, 17), randInt(0, 59));
+        if (rnd() < 0.85) dataEncerramento = new Date(dataExecucao.getTime() + randInt(1, 72) * 3600000);
+      }
+      codSeq++;
+      progRecords.push({
+        codOrdem: codSeq, tag: `EQ-${randInt(100, 999)}`,
+        descricaoOs: pick(["Lubrificação preventiva", "Inspeção elétrica", "Troca de rolamento", "Calibração de instrumento", "Revisão de motor"]),
+        descricaoEquipamento: pick(["Transportador de Correia", "Motor Principal", "Bomba de Processo", "Painel Elétrico", "Redutor"]),
+        dataProgramacao, dataExecucao, dataEncerramento, dataExclusao: null,
+        executante: pick(executantesFake),
+      });
+    }
+  }
+  progData = { records: progRecords, sheetName: "Demonstração" };
+
+  // ---------------- 4) Solicitações de Serviço ----------------
+  const setoresFake = ["Planta 01", "Planta 02", "Planta 03", "Descarga", "Expedição"];
+  const solicRecords = [];
+  let solicId = 1000;
+  for (let d = new Date(cycleStartDemo); d <= todayDemo; d = dAdd(d, 1)) {
+    const n = rnd() < 0.6 ? randInt(0, 2) : 0;
+    for (let k = 0; k < n; k++) {
+      const dataAbertura = new Date(d);
+      const arquivada = rnd() < 0.05;
+      let idOrdemServico = null, osDataAbertura = null, osDataEncerramento = null;
+      if (!arquivada && rnd() < 0.75) {
+        solicId++;
+        idOrdemServico = `demo-${solicId}`;
+        osDataAbertura = dAdd(dataAbertura, randInt(0, 3));
+        if (rnd() < 0.7) osDataEncerramento = dAdd(osDataAbertura, randInt(1, 10));
+      }
+      solicRecords.push({
+        dataAbertura, setor: pick(setoresFake), idOrdemServico, osDataAbertura, osDataEncerramento, arquivada,
+        equipamento: `EQ-${randInt(100, 999)}`, prioridade: pick(["Alta", "Média", "Baixa"]),
+      });
+    }
+  }
+  solicitacoesData = { records: solicRecords };
+
+  // ---------------- 5) Mapa de 52 Semanas / Preventivas ----------------
+  const equipamentosFake = [];
+  for (let i = 1; i <= 14; i++) {
+    equipamentosFake.push({
+      id: `equip-${i}`,
+      tag: `MTZ-PL0${(i % 4) + 1}-${String.fromCharCode(65 + (i % 6))}${i}`,
+      descricao: pick(["Motor Principal", "Bomba Centrífuga", "Redutor", "Correia Transportadora", "Painel Elétrico", "Ventilador Industrial"]),
+    });
+  }
+  const planosFakeNomes = ["Lubrificação Mensal", "Inspeção Semanal Elétrica", "Checklist Diário Mecânico", "Calibração Trimestral", "Troca de Filtro Quinzenal"];
+  const periodicidadesFake = [1, 7, 14, 30, 90];
+  const preventRecords = [];
+  let osSeqPrevent = 5000;
+  equipamentosFake.forEach((eq) => {
+    const nPlanos = randInt(1, 2);
+    for (let p = 0; p < nPlanos; p++) {
+      const idFmp = `fmp-${eq.id}-${p}`;
+      const planoNome = pick(planosFakeNomes);
+      const periodDias = pick(periodicidadesFake);
+      const planoAtivo = rnd() < 0.92;
+      let cursor = new Date(cycleStartDemo);
+      let guard = 0;
+      while (cursor <= cycleEndDemo && guard < 400) {
+        const dow = cursor.getDay();
+        const fimDeSemanaDiario = periodDias === 1 && (dow === 0 || dow === 6);
+        if (!fimDeSemanaDiario) {
+          const isPast = cursor <= todayDemo;
+          let idOrdemServico = null, codOrdem = null, osDataAbertura = null, osDataEncerramento = null;
+          if (isPast && planoAtivo && rnd() < 0.8) {
+            osSeqPrevent++;
+            idOrdemServico = `demo-os-${osSeqPrevent}`;
+            codOrdem = osSeqPrevent;
+            osDataAbertura = new Date(cursor);
+            if (rnd() < 0.75) osDataEncerramento = dAdd(cursor, randInt(0, 6));
+          }
+          preventRecords.push({
+            id: `${idFmp}-${dIso(cursor)}`, idFmp,
+            tagFmp: planoNome.slice(0, 8).toUpperCase(), descricaoFmp: planoNome,
+            idEquipamento: eq.id, equipamentoTag: eq.tag, equipamentoDescricao: eq.descricao,
+            dataExecucaoPrevista: new Date(cursor),
+            idOrdemServico, codOrdem, osDataAbertura, osDataEncerramento,
+            planoAtivo, projetado: !isPast, periodDiasResolvido: periodDias,
+          });
+        }
+        cursor = dAdd(cursor, periodDias);
+        guard++;
+      }
+    }
+  });
+  preventivasData = { records: preventRecords };
+
+  // ---------------- boot direto no Painel Geral, sem login ----------------
+  applyTheme("light");
+  document.getElementById("loginGate").style.display = "none";
+  document.getElementById("appShell").style.display = "";
+  initMobileAccordions();
+
+  render();
+  document.getElementById("dispDashboard").style.display = "";
+  document.getElementById("dispPreviewPanel").style.display = "none";
+  document.getElementById("dispEmptyState").style.display = "none";
+  initDispFilterDefaults();
+  renderDisponibilidade();
+
+  document.getElementById("progDashboard").style.display = "";
+  document.getElementById("progPreviewPanel").style.display = "none";
+  document.getElementById("progEmptyState").style.display = "none";
+  initProgFilterDefaults();
+  renderProgramacao();
+
+  document.getElementById("solicDashboard").style.display = "";
+  document.getElementById("solicEmptyState").style.display = "none";
+  initSolicFilterDefaults();
+  renderSolicitacoes();
+
+  document.getElementById("preventDashboard").style.display = "";
+  document.getElementById("preventEmptyState").style.display = "none";
+  renderPreventivas();
+
+  switchApp("geral");
+  setCloudStatus("Modo demonstração — dados fictícios, sem conexão com a nuvem.", "ok");
+})();
 </script>
 </body>
 </html>
