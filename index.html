@@ -169,7 +169,12 @@
   .btn.ghost:hover{color:var(--muted);border-color:transparent;}
   .status-line{font-family:'Inter',sans-serif;font-size:11px;color:var(--muted3);margin-top:8px;}
   .disp-source-footer{display:flex;align-items:center;gap:7px;font-family:'Inter',sans-serif;font-size:11.5px;color:var(--muted3);
-    justify-content:center;padding:10px 0 0;}
+    justify-content:center;padding:10px 0 0;flex-wrap:wrap;}
+  .sync-now-btn{margin-left:4px;}
+  .sync-now-btn:disabled{opacity:.6;cursor:default;}
+  .sync-now-status{font-size:11px;}
+  .sync-now-status.ok{color:var(--saldo-pos);}
+  .sync-now-status.err{color:var(--saldo-neg);}
   .disp-fail-row:hover{background:var(--line2);}
   .status-line.ok{color:var(--saldo-pos);}
   .status-line.err{color:var(--saldo-neg);}
@@ -866,6 +871,8 @@
       <div class="disp-source-footer">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
         Dados atualizados automaticamente a partir do sistema Evocon, a cada 1 hora.
+        <button type="button" class="btn ghost small sync-now-btn" id="btnSyncDispNow">Sincronizar agora</button>
+        <span class="sync-now-status" id="syncDispStatus"></span>
       </div>
     </div>
 
@@ -1098,6 +1105,8 @@
       <div class="disp-source-footer">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
         Dados atualizados automaticamente a partir do sistema Melvin, a cada 1 hora.
+        <button type="button" class="btn ghost small sync-now-btn" id="btnSyncProgNow">Sincronizar agora</button>
+        <span class="sync-now-status" id="syncProgStatus"></span>
       </div>
     </div>
 
@@ -1317,6 +1326,8 @@
       <div class="disp-source-footer">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
         Dados atualizados automaticamente a partir do sistema Melvin, a cada 1 hora.
+        <button type="button" class="btn ghost small sync-now-btn" id="btnSyncSolicNow">Sincronizar agora</button>
+        <span class="sync-now-status" id="syncSolicStatus"></span>
       </div>
     </div>
 
@@ -1377,6 +1388,8 @@
       <div class="disp-source-footer">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
         Dados atualizados automaticamente a partir do sistema Melvin, a cada 1 hora.
+        <button type="button" class="btn ghost small sync-now-btn" id="btnSyncPreventNow">Sincronizar agora</button>
+        <span class="sync-now-status" id="syncPreventStatus"></span>
       </div>
     </div>
 
@@ -6448,6 +6461,42 @@ async function syncFromCloud() {
     setCloudStatus("Sem conexão com a nuvem — mostrando dados locais", "err");
   }
 }
+
+/* ============ "Sincronizar agora" (Disponibilidade / Programação / Solicitações / Preventivas) ============
+   Dispara a mesma Edge Function que já roda sozinha de hora em hora (sem ?full=1, incremental — mais
+   rápido), e ao terminar chama syncFromCloud() pra puxar o resultado novo pro navegador, exatamente como
+   já acontece quando o cron automático termina uma rodada. */
+async function syncDomainNow(btnId, statusId, functionSlug) {
+  const btn = document.getElementById(btnId);
+  const statusEl = document.getElementById(statusId);
+  if (btn.disabled) return; // evita clique duplo enquanto já está rodando
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Sincronizando…";
+  statusEl.textContent = "";
+  statusEl.className = "sync-now-status";
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/${functionSlug}`);
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok || !json || json.ok === false) {
+      throw new Error((json && json.error) || `Melvin/Evocon respondeu ${resp.status}`);
+    }
+    await syncFromCloud();
+    statusEl.textContent = `Atualizado às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+    statusEl.classList.add("ok");
+  } catch (e) {
+    statusEl.textContent = "Falha ao sincronizar — tenta de novo em instantes.";
+    statusEl.classList.add("err");
+    console.warn("Erro na sincronização manual:", e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+document.getElementById("btnSyncDispNow").addEventListener("click", () => syncDomainNow("btnSyncDispNow", "syncDispStatus", "clever-function"));
+document.getElementById("btnSyncProgNow").addEventListener("click", () => syncDomainNow("btnSyncProgNow", "syncProgStatus", "quick-worker"));
+document.getElementById("btnSyncSolicNow").addEventListener("click", () => syncDomainNow("btnSyncSolicNow", "syncSolicStatus", "super-action"));
+document.getElementById("btnSyncPreventNow").addEventListener("click", () => syncDomainNow("btnSyncPreventNow", "syncPreventStatus", "smooth-api"));
 
 /* ============ login (Supabase Auth) ============ */
 document.getElementById("loginLogo").src = document.querySelector(".brand-logo-sb") ? document.querySelector(".brand-logo-sb").src : "";
