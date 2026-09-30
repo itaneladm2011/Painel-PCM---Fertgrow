@@ -4556,8 +4556,12 @@ function renderProgWeeklyChart(weeks, granularity, svgId) {
         dy = Math.max(-34, Math.min(-10, proj - 6));
       }
     }
-    if (cy+dy < marginT+7) dy = 15;
-    if (cy+dy > H-36) dy = -10;
+    // perto da margem: empurra o mínimo pra caber, sem virar pro outro lado do ponto
+    // (virar incondicionalmente jogava o rótulo em cima da própria linha quando o
+    // trecho vizinho era íngreme — ex.: ponto perto de 100% logo após uma subida forte)
+    const minLabelY = marginT + 7, maxLabelY = H - 36;
+    if (cy+dy < minLabelY) dy = minLabelY - cy;
+    if (cy+dy > maxLabelY) dy = maxLabelY - cy;
     return { anchor, lx, dy };
   };
   // muitos pontos: rotula o último, o maior e o menor e o que couber sem sobrepor
