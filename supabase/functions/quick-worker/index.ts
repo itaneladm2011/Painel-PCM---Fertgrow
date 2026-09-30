@@ -36,6 +36,13 @@ const CYCLE_START = "2026-07-01"; // início do ciclo 26/27 (mesmo do painel de 
 const REFRESH_DAYS = 45;          // janela reprocessada a cada execução
 const PAGE_SIZE = 500;
 
+// necessário pro botão "Sincronizar agora" do painel (chamado direto do navegador,
+// cron via pg_net não precisa disso mas não atrapalha)
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 function dIso(d: Date) {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
@@ -118,6 +125,7 @@ async function fetchWindow(token: string, dateField: "programacao" | "execucao",
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
   try {
     const username = Deno.env.get("MELVIN_USERNAME");
     const password = Deno.env.get("MELVIN_PASSWORD");
@@ -214,12 +222,12 @@ Deno.serve(async (req: Request) => {
         totalExecucao: byExecucao.length,
         ordensNoHistorico: records.length,
       }),
-      { headers: { "Content-Type": "application/json" } },
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e && (e as Error).message || e) }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   }
 });

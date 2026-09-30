@@ -74,6 +74,13 @@ const REFRESH_DAYS = 45;
 const PAGE_SIZE = 500;
 const OS_LOOKUP_CONCURRENCY = 6;
 
+// necessário pro botão "Sincronizar agora" do painel (chamado direto do navegador,
+// cron via pg_net não precisa disso mas não atrapalha)
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 function dIso(d: Date) {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
@@ -323,6 +330,7 @@ function projetarOcorrenciasDoPar(fmp: any, idFmp: string, idEquipamento: string
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
   try {
     const username = Deno.env.get("MELVIN_USERNAME");
     const password = Deno.env.get("MELVIN_PASSWORD");
@@ -507,12 +515,12 @@ Deno.serve(async (req: Request) => {
         amostraPlanos: Array.from(new Set(records.map((r) => r.tagFmp).filter(Boolean))).slice(0, 8),
         paresProjetados: paresReais.size,
       }),
-      { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" } },
     );
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e && (e as Error).message || e) }), {
       status: 500,
-      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   }
 });
