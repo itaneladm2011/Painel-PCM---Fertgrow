@@ -4365,6 +4365,7 @@ function executadaNoPrazoSemana(dataProgramacao, dataExecucao) {
   // usado só para o indicador "Aderência à programação": tolera execução em qualquer dia da mesma semana (domingo a sábado)
   if (!dataProgramacao || !dataExecucao) return false;
   const execDay = dOnly(dataExecucao);
+  if (+execDay <= +dataProgramacao) return true; // antecipação (executada antes ou na própria data programada) sempre conta como no prazo, mesmo cruzando virada de semana
   const diffDays = Math.round((execDay - dataProgramacao) / 86400000);
   const execMinutes = dataExecucao.getHours() * 60 + dataExecucao.getMinutes();
   if (diffDays === 1 && execMinutes <= 420) return true; // execução entre 00:00 e 07:00 do dia seguinte à programação (virada de turno)
