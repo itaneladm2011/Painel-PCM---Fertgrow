@@ -441,7 +441,7 @@ Deno.serve(async (req: Request) => {
     // esses planos mesmo sem eles estarem rodando de verdade, o que inflava as "atrasadas" com
     // ocorrências que o Melvin nunca teria gerado OS de qualquer forma.
     records = records.map((r: any) => {
-      if (!r.idFmp) return { ...r, periodDiasResolvido: null, planoAtivo: null, planejaOsAutomaticamente: null };
+      if (!r.idFmp) return { ...r, periodDiasResolvido: null, planoAtivo: null, planejaOsAutomaticamente: null, fmpDataInicio: null };
       const fmp = fmpById.get(r.idFmp);
       const periodDias = fmp?.periodicidade?.dia || (fmp?.idPeriodicidade ? periodicidadesById.get(fmp.idPeriodicidade)?.dia : null);
       return {
@@ -451,6 +451,12 @@ Deno.serve(async (req: Request) => {
         // plano pode estar ativo mas configurado pra NÃO gerar OS sozinho — exige disparo manual
         // do planejador a cada ciclo. Testando se isso explica as atrasadas-sem-OS de plano ativo.
         planejaOsAutomaticamente: fmp ? !!fmp.planejarOsAutomaticamente : null,
+        // "Início do Plano" na ficha do Melvin — quando o planejador reinicia um plano (nova
+        // periodicidade, novo ciclo de controle), essa data avança. Ocorrências do histórico
+        // anteriores a ela pertencem à configuração ANTERIOR do plano: o Melvin não mantém o
+        // vínculo com a OS pra elas (idOrdemServico vem null mesmo quando a OS existe e já foi
+        // encerrada), o que as fazia aparecer como "atrasada sem OS" pra sempre, por engano.
+        fmpDataInicio: fmp ? toIsoOrNull(fmp.dataInicio) : null,
       };
     });
     records = records.filter((r: any) => {
@@ -459,6 +465,15 @@ Deno.serve(async (req: Request) => {
       const fimDeSemana = dow === 0 || dow === 6;
       if (fimDeSemana) registrosDescartadosFimDeSemana.count++;
       return !fimDeSemana;
+    });
+    const registrosDescartadosPreReinicio = { count: 0 };
+    records = records.filter((r: any) => {
+      // só descarta quando a ocorrência JÁ tem um desfecho ambíguo (sem OS vinculada e sem
+      // encerramento) — se já tem OS vinculada normalmente, mantém o registro de qualquer forma
+      if (r.idOrdemServico || !r.fmpDataInicio || !r.dataExecucaoPrevista) return true;
+      const ehAnteriorAoReinicio = String(r.dataExecucaoPrevista).slice(0, 10) < String(r.fmpDataInicio).slice(0, 10);
+      if (ehAnteriorAoReinicio) registrosDescartadosPreReinicio.count++;
+      return !ehAnteriorAoReinicio;
     });
 
     // pares (plano, equipamento) observados nas ocorrências REAIS — não usa o idEquipamento do
@@ -517,6 +532,7 @@ Deno.serve(async (req: Request) => {
         equipamentosUnicosNoHistorico: equipamentosUnicos.size,
         ocorrenciasSemTagResolvida: semTag,
         ocorrenciasDescartadasFimDeSemana: registrosDescartadosFimDeSemana.count,
+        ocorrenciasDescartadasPreReinicioDoPlano: registrosDescartadosPreReinicio.count,
         planosComPeriodicidadeResolvida: fmpById.size,
         ocorrenciasProjetadas: projetadas.length,
         amostraPlanos: Array.from(new Set(records.map((r) => r.tagFmp).filter(Boolean))).slice(0, 8),
