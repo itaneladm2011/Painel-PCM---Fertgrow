@@ -6440,6 +6440,11 @@ async function syncFromCloud() {
         initProgFilterDefaults();
         renderProgramacao();
         document.getElementById("btnResetProg").style.display = "inline-block";
+        // a tabela de preventivas atrasadas cruza com progData ("Programada no Melvin?") — se só
+        // a Programação mudou nesta sincronização (ex.: cron automático dela rodou, mas o de
+        // Preventivas não), essa coluna ficava presa no valor antigo até a próxima vez que
+        // justamente a Preventivas também mudasse. Refaz sempre que progData muda.
+        if (preventivasData) renderPreventivas();
       } else if (row.key === RCA_STORAGE_KEY) {
         rcaStore = row.data;
         normalizeRcaStore();
