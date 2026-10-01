@@ -1855,7 +1855,11 @@ function renderTrendChart(months, highlightLabel, svgId) {
       anchor = ascending ? "end" : "start";
       lxOff = ascending ? -7 : 7;
     }
-    let dy = -10;
+    // pico: rótulo acima sempre fica livre da linha (os dois trechos vizinhos ficam abaixo do pico).
+    // vale: é o espelho disso — rótulo abaixo sempre fica livre (os trechos vizinhos ficam acima do
+    // vale). Usar "acima" pros dois, como era antes, deixava o rótulo do vale em cima da própria
+    // linha sempre que o trecho seguinte subisse forte (ex.: vale em 0% seguido de pico em 100%).
+    let dy = isValley ? 10 : -10;
     if (i === 0 || i === n-1) {
       const neighborCy = i === 0 ? nextCy : prevCy;
       if (neighborCy !== null) {
@@ -1863,8 +1867,11 @@ function renderTrendChart(months, highlightLabel, svgId) {
         dy = Math.max(-34, Math.min(-10, proj - 6));
       }
     }
-    if (cy + dy < marginT + 8) dy = 15;
-    if (cy + dy > marginT + plotH - 4) dy = -10;
+    // perto da margem: empurra o mínimo pra caber, sem virar pro outro lado do ponto (virar
+    // incondicionalmente jogava o rótulo em cima da própria linha — ex.: ponto no valor máximo/mínimo
+    // do eixo, onde não sobra espaço nenhum do lado seguro mesmo aumentando a margem)
+    if (cy + dy < 9) dy = 9 - cy;
+    if (cy + dy > H - 18) dy = (H - 18) - cy;
     return { anchor, lxOff, dy };
   }
 
@@ -3132,7 +3139,11 @@ function renderWeeklyLineChart(svgId, weeks, valueKey, color, fmtFn, highlightSt
       anchor = ascending ? "end" : "start";
       lx = ascending ? xScale(i)-7 : xScale(i)+7;
     }
-    let dy = -10;
+    // pico: rótulo acima sempre fica livre da linha (os dois trechos vizinhos ficam abaixo do pico).
+    // vale: é o espelho disso — rótulo abaixo sempre fica livre (os trechos vizinhos ficam acima do
+    // vale). Usar "acima" pros dois, como era antes, deixava o rótulo do vale em cima da própria
+    // linha sempre que o trecho seguinte subisse forte (ex.: vale em 0% seguido de pico em 100%).
+    let dy = isValley ? 10 : -10;
     if (i === 0 || i === n-1) {
       const stepX = plotW / Math.max(1, n-1);
       const neighborCy = i === 0 ? nextCy : prevCy;
@@ -3141,8 +3152,11 @@ function renderWeeklyLineChart(svgId, weeks, valueKey, color, fmtFn, highlightSt
         dy = Math.max(-34, Math.min(-10, proj - 6));
       }
     }
-    if (cy + dy < marginT + 7) dy = 15;
-    if (cy + dy > H - 36) dy = -10;
+    // perto da margem: empurra o mínimo pra caber, sem virar pro outro lado do ponto (virar
+    // incondicionalmente jogava o rótulo em cima da própria linha — ex.: ponto no valor máximo/mínimo
+    // do eixo, onde não sobra espaço nenhum do lado seguro mesmo aumentando a margem)
+    if (cy + dy < 9) dy = 9 - cy;
+    if (cy + dy > H - 36) dy = (H - 36) - cy;
     return { anchor, lx, dy };
   };
 
@@ -4548,7 +4562,11 @@ function renderProgWeeklyChart(weeks, granularity, svgId) {
       anchor = ascending ? "end" : "start";
       lx = ascending ? xScale(i)-7 : xScale(i)+7;
     }
-    let dy = -10;
+    // pico: rótulo acima sempre fica livre da linha (os dois trechos vizinhos ficam abaixo do pico).
+    // vale: é o espelho disso — rótulo abaixo sempre fica livre (os trechos vizinhos ficam acima do
+    // vale). Usar "acima" pros dois, como era antes, deixava o rótulo do vale em cima da própria
+    // linha sempre que o trecho seguinte subisse forte (ex.: vale em 0% seguido de pico em 100%).
+    let dy = isValley ? 10 : -10;
     if (i === 0 || i === n-1) {
       const stepX = plotW / Math.max(1, n-1);
       const neighborCy = i === 0 ? nextCy : prevCy;
@@ -4559,8 +4577,10 @@ function renderProgWeeklyChart(weeks, granularity, svgId) {
     }
     // perto da margem: empurra o mínimo pra caber, sem virar pro outro lado do ponto
     // (virar incondicionalmente jogava o rótulo em cima da própria linha quando o
-    // trecho vizinho era íngreme — ex.: ponto perto de 100% logo após uma subida forte)
-    const minLabelY = marginT + 7, maxLabelY = H - 36;
+    // trecho vizinho era íngreme, ou quando o valor é exatamente o máximo/mínimo do eixo —
+    // nesse caso o limite não pode ficar atrelado à margem, senão o problema persiste
+    // não importa o quanto a margem aumente)
+    const minLabelY = 9, maxLabelY = H - 18;
     if (cy+dy < minLabelY) dy = minLabelY - cy;
     if (cy+dy > maxLabelY) dy = maxLabelY - cy;
     return { anchor, lx, dy };
