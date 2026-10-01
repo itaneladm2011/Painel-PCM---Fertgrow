@@ -1359,6 +1359,7 @@
             <span class="legend-item"><span class="legend-swatch" style="background:var(--tratado)"></span>Programada, ainda no prazo</span>
             <span class="legend-item"><span class="legend-swatch" style="background:#8FB6DE"></span>Estimativa pela periodicidade</span>
             <span class="legend-item"><span class="legend-swatch" style="background:#C4B896"></span>Plano cadastrado, ainda não iniciado</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:#A89F93"></span>OS cancelada</span>
             <span class="legend-item"><span class="legend-swatch" style="background:#E4E1DA"></span>Sem ocorrência prevista</span>
           </div>
         </div>
@@ -2648,6 +2649,7 @@ function loadPreventFromStorage() {
       dataExecucaoPrevista: parsePreventDate(r.dataExecucaoPrevista),
       osDataAbertura: parsePreventDate(r.osDataAbertura),
       osDataEncerramento: parsePreventDate(r.osDataEncerramento),
+      osDataExclusao: parsePreventDate(r.osDataExclusao),
     }));
     const metaRaw = localStorage.getItem(PREVENT_STORAGE_META_KEY);
     const meta = metaRaw ? JSON.parse(metaRaw) : null;
@@ -5291,6 +5293,9 @@ document.getElementById("solicDateEnd").addEventListener("change", (e) => {
    ativado no Melvin \u2014 nunca teria OS de qualquer forma) / atrasada (prazo j\u00e1 passou sem encerrar) /
    pendente (ainda dentro do prazo \u2014 mesma premissa j\u00e1 usada em Programa\u00e7\u00e3o: "hoje" ainda n\u00e3o \u00e9 atraso). */
 function preventOcorrenciaEstado(o) {
+  // OS cancelada no Melvin: a pendência em si deixou de existir, não é um atraso real — mesmo
+  // tratamento dado ao "não iniciado" (categoria própria, fora da contagem de atrasadas)
+  if (o.osDataExclusao) return "cancelada";
   if (o.osDataEncerramento) return "concluida";
   if (!o.idOrdemServico && o.planoAtivo === false) return "nao_iniciado";
   if (!o.dataExecucaoPrevista) return "pendente";
@@ -5346,7 +5351,8 @@ function computePreventByEquipamento(records, weeks) {
       let pior;
       if (estados.includes("atrasada")) pior = "atrasada";
       else if (estados.includes("pendente")) pior = "pendente";
-      else if (estados.every(e => e === "nao_iniciado")) pior = "nao_iniciado";
+      else if (estados.every(e => e === "cancelada")) pior = "cancelada";
+      else if (estados.every(e => e === "nao_iniciado" || e === "cancelada")) pior = "nao_iniciado";
       else pior = "concluida";
       // pendente só com ocorrências PROJETADAS (nenhuma delas ainda gerada pelo Melvin) vira um status
       // próprio — é uma estimativa calculada pela periodicidade do plano, não uma data confirmada
@@ -5371,8 +5377,8 @@ function computePreventByEquipamento(records, weeks) {
   return equipamentos.sort((a, b) => a.equipLabel.localeCompare(b.equipLabel) || a.planoLabel.localeCompare(b.planoLabel));
 }
 
-const PREVENT_STATUS_COLOR = { concluida: COLOR_REALIZADO, atrasada: COLOR_SALDO_NEG, pendente: "#1F5FA8", estimado: "#8FB6DE", nao_iniciado: "#C4B896", vazio: "#E4E1DA" };
-const PREVENT_STATUS_LABEL = { concluida: "Conclu\u00edda no prazo", atrasada: "Atrasada", pendente: "Programada, ainda no prazo", estimado: "Estimativa pela periodicidade do plano", nao_iniciado: "Plano cadastrado, ainda n\u00e3o iniciado", vazio: "Sem ocorr\u00eancia prevista" };
+const PREVENT_STATUS_COLOR = { concluida: COLOR_REALIZADO, atrasada: COLOR_SALDO_NEG, pendente: "#1F5FA8", estimado: "#8FB6DE", nao_iniciado: "#C4B896", cancelada: "#A89F93", vazio: "#E4E1DA" };
+const PREVENT_STATUS_LABEL = { concluida: "Conclu\u00edda no prazo", atrasada: "Atrasada", pendente: "Programada, ainda no prazo", estimado: "Estimativa pela periodicidade do plano", nao_iniciado: "Plano cadastrado, ainda n\u00e3o iniciado", cancelada: "OS cancelada", vazio: "Sem ocorr\u00eancia prevista" };
 
 /* ============ gr\u00e1fico: mapa de 52 semanas (uma linha por equipamento, uma coluna por semana) ============ */
 function renderPreventMapaChart(svgId, planos, weeks) {
@@ -5451,7 +5457,7 @@ function renderPreventMapaChart(svgId, planos, weeks) {
         const w = weeks[wi];
         rect.addEventListener("mousemove", (evt) => showTooltip(evt, `${p.label} \u00b7 SEM ${weekNumberSunday(w.start)} (${dBR(w.start)} a ${dBR(w.end)})`, [
           { key: "Situa\u00e7\u00e3o", val: PREVENT_STATUS_LABEL[c.status], color: PREVENT_STATUS_COLOR[c.status], fmt: (v) => esc(v) },
-          ...c.ocorrencias.map(o => ({ key: `Previsto p/ ${dBR(o.dataExecucaoPrevista)}`, val: `${o.osDataEncerramento ? `conclu\u00edda em ${dBR(o.osDataEncerramento)}` : (o.codOrdem ? `OS ${o.codOrdem} aberta, ainda n\u00e3o encerrada` : (o.planoAtivo === false ? "plano ainda n\u00e3o ativado no Melvin" : (o.projetado ? "estimativa pela periodicidade" : "sem OS gerada")))}`, color: "#948F86", fmt: (v) => esc(v) })),
+          ...c.ocorrencias.map(o => ({ key: `Previsto p/ ${dBR(o.dataExecucaoPrevista)}`, val: `${o.osDataExclusao ? `OS ${o.codOrdem} cancelada` : (o.osDataEncerramento ? `conclu\u00edda em ${dBR(o.osDataEncerramento)}` : (o.codOrdem ? `OS ${o.codOrdem} aberta, ainda n\u00e3o encerrada` : (o.planoAtivo === false ? "plano ainda n\u00e3o ativado no Melvin" : (o.projetado ? "estimativa pela periodicidade" : "sem OS gerada"))))}`, color: "#948F86", fmt: (v) => esc(v) })),
         ]));
         rect.addEventListener("mouseleave", hideTooltip);
       }
@@ -6472,6 +6478,7 @@ async function syncFromCloud() {
           dataExecucaoPrevista: parsePreventDate(r.dataExecucaoPrevista),
           osDataAbertura: parsePreventDate(r.osDataAbertura),
           osDataEncerramento: parsePreventDate(r.osDataEncerramento),
+          osDataExclusao: parsePreventDate(r.osDataExclusao),
         }));
         preventivasData = { records };
         localStorage.setItem(PREVENT_STORAGE_KEY, JSON.stringify(raw));

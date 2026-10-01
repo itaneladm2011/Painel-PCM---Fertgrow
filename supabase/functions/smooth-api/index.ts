@@ -369,7 +369,8 @@ Deno.serve(async (req: Request) => {
     raw.forEach((r) => {
       if (!r.idOrdemServico) return;
       const prev = existingById.get(r.id);
-      if (!prev || !prev.osDataEncerramento) idsParaBuscar.push(r.idOrdemServico);
+      // encerrada ou cancelada é estado terminal — não muda mais, não precisa reconsultar
+      if (!prev || (!prev.osDataEncerramento && !prev.osDataExclusao)) idsParaBuscar.push(r.idOrdemServico);
     });
     const osById = await fetchOrdensEmLotes(token, Array.from(new Set(idsParaBuscar)));
 
@@ -378,6 +379,11 @@ Deno.serve(async (req: Request) => {
       const os = r.idOrdemServico ? osById.get(r.idOrdemServico) : null;
       const osDataAbertura = os ? toIsoOrNull(os.dataAbertura) : (prev ? prev.osDataAbertura ?? null : null);
       const osDataEncerramento = os ? toIsoOrNull(os.dataEncerramento) : (prev ? prev.osDataEncerramento ?? null : null);
+      // campo confirmado via inspeção direta da resposta de OrdemServico/Get (diferente do
+      // "dataExclusao" usado no relatório de Programação — essa API usa outro nome aqui:
+      // dataCancelada + indCancelada:true + statusTexto:"Cancelada"). Uma preventiva com OS
+      // cancelada não deveria contar como atrasada (a pendência em si foi cancelada, não ficou pra trás)
+      const osDataExclusao = os ? toIsoOrNull(os.dataCancelada) : (prev ? prev.osDataExclusao ?? null : null);
       const fg = r.fmpGeracao ?? {};
       // resolvido via cadastro completo de equipamentos (Equipamento/GetAll) — funciona pra TODA
       // ocorrência, inclusive futura/sem OS gerada ainda, diferente da tentativa anterior que só
@@ -398,6 +404,7 @@ Deno.serve(async (req: Request) => {
         codOrdem: r.codOrdem ?? null,
         osDataAbertura,
         osDataEncerramento,
+        osDataExclusao,
       };
     });
 
