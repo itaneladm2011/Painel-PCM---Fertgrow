@@ -33,7 +33,10 @@
 const STORAGE_KEY = "painelProgramacao_data_v1";
 const MELVIN_BASE = "https://api-novo.oimelvin.com.br";
 const CYCLE_START = "2026-07-01"; // início do ciclo 26/27 (mesmo do painel de Disponibilidade)
-const REFRESH_DAYS = 45;          // janela reprocessada a cada execução
+const CYCLE_END = "2027-06-30";   // fim do ciclo — a janela de busca vai até aqui, não só até hoje,
+                                   // senão OS programada pra uma data futura nunca é capturada (o
+                                   // Melvin deixa programar com bastante antecedência)
+const REFRESH_DAYS = 45;          // quanto do passado é reprocessado a cada execução incremental
 const PAGE_SIZE = 500;
 
 // necessário pro botão "Sincronizar agora" do painel (chamado direto do navegador,
@@ -150,7 +153,11 @@ Deno.serve(async (req: Request) => {
     const end = new Date();
     const refreshFrom = dIso(new Date(end.getTime() - REFRESH_DAYS * 86400000));
     const startTime = fullFetch ? CYCLE_START : (refreshFrom > CYCLE_START ? refreshFrom : CYCLE_START);
-    const endTime = dIso(end);
+    // vai até o fim do ciclo, não só até hoje — uma OS pode ser programada com bastante
+    // antecedência (dataProgramacao numa semana futura), e se a janela parasse em "hoje" essa OS
+    // nunca seria buscada, ficando com "Programada no Melvin?" errado em outros painéis até o dia
+    // em que a data programada finalmente chegasse
+    const endTime = CYCLE_END;
 
     const token = await authenticate(username, password);
 
