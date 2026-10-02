@@ -4388,6 +4388,14 @@ function executadaNoPrazoSemana(dataProgramacao, dataExecucao) {
   if (diffDays === 1 && execMinutes <= 420) return true; // execução entre 00:00 e 07:00 do dia seguinte à programação (virada de turno)
   return +dWeekStartSunday(dataProgramacao) === +dWeekStartSunday(execDay);
 }
+// usado nos indicadores de aderência (KPI e gráficos): ordem programada pra HOJE e ainda sem
+// execução continua em aberto (o dia não fechou) — não deve contar nem a favor nem contra a
+// aderência ainda. A tabela "Ordens no período" continua mostrando ela normalmente (status
+// "No prazo"), só os indicadores agregados é que ignoram essas enquanto o prazo não vence.
+function excluirEmAbertoHoje(list) {
+  const hoje = dOnly(new Date());
+  return list.filter(r => !(!r.dataExecucao && +r.dataProgramacao === +hoje));
+}
 
 function fmtDaysSigned(v) {
   v = v ?? 0;
@@ -4411,14 +4419,18 @@ function initProgFilterDefaults() {
 
 function computeProgRange(records, start, end) {
   const inRangeProg = records.filter(r => r.dataProgramacao && r.dataProgramacao >= start && r.dataProgramacao <= end && !r.dataExclusao);
-  const programadas = inRangeProg.length;
-  const executadasNoPrazo = inRangeProg.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
+  // ordem programada pra HOJE e ainda não executada: o prazo ainda não venceu (o dia não fechou),
+  // então não entra nem a favor nem contra a aderência ainda — só a tabela/lista continua mostrando
+  // ela, com status "No prazo" (em aberto)
+  const progVencidas = excluirEmAbertoHoje(inRangeProg);
+  const programadas = progVencidas.length;
+  const executadasNoPrazo = progVencidas.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
   const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
 
   const inRangeExec = records.filter(r => r.dataExecucao && dOnly(r.dataExecucao) >= start && dOnly(r.dataExecucao) <= end && !r.dataExclusao);
   const totalExecutadas = inRangeExec.length;
   // fora de programação: executada em data posterior à programada (atraso real). Antecipação e virada de turno (00:00-07:00 do dia seguinte) contam como no prazo.
-  const foraDePrazoProgramadas = inRangeProg.filter(r => r.dataExecucao && !executadaNoPrazo(r.dataProgramacao, r.dataExecucao));
+  const foraDePrazoProgramadas = progVencidas.filter(r => r.dataExecucao && !executadaNoPrazo(r.dataProgramacao, r.dataExecucao));
   const foraDeProgramacaoNaoProgramadas = inRangeExec.filter(r => !r.dataProgramacao).length;
   const foraDeProgramacao = foraDePrazoProgramadas.length + foraDeProgramacaoNaoProgramadas;
   const pctForaDeProgramacao = programadas > 0 ? (foraDeProgramacao / programadas) * 100 : 0;
@@ -4447,7 +4459,7 @@ function computeProgWeeklySeries(records, rangeStart, rangeEnd) {
     // mas contam só os dias dentro do período — mesma regra já usada na Evolução Semanal da Disponibilidade
     const clipStart = ws < rangeStart ? rangeStart : ws;
     const clipEnd = weEnd > rangeEnd ? rangeEnd : weEnd;
-    const weekRecords = records.filter(r => r.dataProgramacao && r.dataProgramacao >= clipStart && r.dataProgramacao <= clipEnd && !r.dataExclusao);
+    const weekRecords = excluirEmAbertoHoje(records.filter(r => r.dataProgramacao && r.dataProgramacao >= clipStart && r.dataProgramacao <= clipEnd && !r.dataExclusao));
     const programadas = weekRecords.length;
     const executadasNoPrazo = weekRecords.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
     const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
@@ -4460,7 +4472,7 @@ function computeProgDailySeries(records, rangeStart, rangeEnd) {
   if (!rangeStart || !rangeEnd) return [];
   const days = [];
   for (let d = dOnly(rangeStart); d <= dOnly(rangeEnd); d = dAdd(d, 1)) {
-    const dayRecords = records.filter(r => r.dataProgramacao && +r.dataProgramacao === +d && !r.dataExclusao);
+    const dayRecords = excluirEmAbertoHoje(records.filter(r => r.dataProgramacao && +r.dataProgramacao === +d && !r.dataExclusao));
     const programadas = dayRecords.length;
     const executadasNoPrazo = dayRecords.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
     const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
@@ -4477,7 +4489,7 @@ function computeProgMonthlySeries(records, rangeStart, rangeEnd) {
     const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
     const start = cursor < rangeStart ? dOnly(rangeStart) : cursor;
     const end = monthEnd > rangeEnd ? dOnly(rangeEnd) : monthEnd;
-    const monthRecords = records.filter(r => r.dataProgramacao && r.dataProgramacao >= start && r.dataProgramacao <= end && !r.dataExclusao);
+    const monthRecords = excluirEmAbertoHoje(records.filter(r => r.dataProgramacao && r.dataProgramacao >= start && r.dataProgramacao <= end && !r.dataExclusao));
     const programadas = monthRecords.length;
     const executadasNoPrazo = monthRecords.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
     const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
