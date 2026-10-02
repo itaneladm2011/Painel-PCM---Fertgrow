@@ -4423,6 +4423,9 @@ function computeProgRange(records, start, end) {
   // então não entra nem a favor nem contra a aderência ainda — só a tabela/lista continua mostrando
   // ela, com status "No prazo" (em aberto)
   const progVencidas = excluirEmAbertoHoje(inRangeProg);
+  // quantas ficaram de fora só por estarem em aberto hoje — mostrado ao lado da aderência pra não
+  // dar a impressão de que o dia já fechou 100% quando na verdade ainda tem ordem pendente de hoje
+  const emAbertoHoje = inRangeProg.length - progVencidas.length;
   const programadas = progVencidas.length;
   const executadasNoPrazo = progVencidas.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
   const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
@@ -4445,7 +4448,7 @@ function computeProgRange(records, start, end) {
     ? comEncerramento.reduce((s, r) => s + (r.dataEncerramento - r.dataExecucao) / 86400000, 0) / comEncerramento.length
     : 0;
 
-  return { programadas, executadasNoPrazo, aderencia, totalExecutadas, foraDeProgramacao, pctForaDeProgramacao, desvioMedioDias, desvioCount: foraDePrazoProgramadas.length, tempoMedioBaixaDias, records: inRangeProg, recordsExec: inRangeExec };
+  return { programadas, executadasNoPrazo, aderencia, emAbertoHoje, totalExecutadas, foraDeProgramacao, pctForaDeProgramacao, desvioMedioDias, desvioCount: foraDePrazoProgramadas.length, tempoMedioBaixaDias, records: inRangeProg, recordsExec: inRangeExec };
 }
 
 function computeProgWeeklySeries(records, rangeStart, rangeEnd) {
@@ -4459,11 +4462,13 @@ function computeProgWeeklySeries(records, rangeStart, rangeEnd) {
     // mas contam só os dias dentro do período — mesma regra já usada na Evolução Semanal da Disponibilidade
     const clipStart = ws < rangeStart ? rangeStart : ws;
     const clipEnd = weEnd > rangeEnd ? rangeEnd : weEnd;
-    const weekRecords = excluirEmAbertoHoje(records.filter(r => r.dataProgramacao && r.dataProgramacao >= clipStart && r.dataProgramacao <= clipEnd && !r.dataExclusao));
+    const weekRecordsTodas = records.filter(r => r.dataProgramacao && r.dataProgramacao >= clipStart && r.dataProgramacao <= clipEnd && !r.dataExclusao);
+    const weekRecords = excluirEmAbertoHoje(weekRecordsTodas);
     const programadas = weekRecords.length;
     const executadasNoPrazo = weekRecords.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
     const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
-    weeks.push({ start: ws, end: weEnd, programadas, executadasNoPrazo, aderencia });
+    const emAbertoHoje = weekRecordsTodas.length - weekRecords.length;
+    weeks.push({ start: ws, end: weEnd, programadas, executadasNoPrazo, aderencia, emAbertoHoje });
   }
   return weeks;
 }
@@ -4472,11 +4477,13 @@ function computeProgDailySeries(records, rangeStart, rangeEnd) {
   if (!rangeStart || !rangeEnd) return [];
   const days = [];
   for (let d = dOnly(rangeStart); d <= dOnly(rangeEnd); d = dAdd(d, 1)) {
-    const dayRecords = excluirEmAbertoHoje(records.filter(r => r.dataProgramacao && +r.dataProgramacao === +d && !r.dataExclusao));
+    const dayRecordsTodas = records.filter(r => r.dataProgramacao && +r.dataProgramacao === +d && !r.dataExclusao);
+    const dayRecords = excluirEmAbertoHoje(dayRecordsTodas);
     const programadas = dayRecords.length;
     const executadasNoPrazo = dayRecords.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
     const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
-    days.push({ start: new Date(d), end: new Date(d), programadas, executadasNoPrazo, aderencia });
+    const emAbertoHoje = dayRecordsTodas.length - dayRecords.length;
+    days.push({ start: new Date(d), end: new Date(d), programadas, executadasNoPrazo, aderencia, emAbertoHoje });
   }
   return days;
 }
@@ -4489,11 +4496,13 @@ function computeProgMonthlySeries(records, rangeStart, rangeEnd) {
     const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
     const start = cursor < rangeStart ? dOnly(rangeStart) : cursor;
     const end = monthEnd > rangeEnd ? dOnly(rangeEnd) : monthEnd;
-    const monthRecords = excluirEmAbertoHoje(records.filter(r => r.dataProgramacao && r.dataProgramacao >= start && r.dataProgramacao <= end && !r.dataExclusao));
+    const monthRecordsTodas = records.filter(r => r.dataProgramacao && r.dataProgramacao >= start && r.dataProgramacao <= end && !r.dataExclusao);
+    const monthRecords = excluirEmAbertoHoje(monthRecordsTodas);
     const programadas = monthRecords.length;
     const executadasNoPrazo = monthRecords.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
     const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
-    months.push({ start: new Date(start), end: new Date(end), programadas, executadasNoPrazo, aderencia });
+    const emAbertoHoje = monthRecordsTodas.length - monthRecords.length;
+    months.push({ start: new Date(start), end: new Date(end), programadas, executadasNoPrazo, aderencia, emAbertoHoje });
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
   }
   return months;
@@ -4631,6 +4640,7 @@ function renderProgWeeklyChart(weeks, granularity, svgId) {
       {key:"Ader\u00eancia", val:w.aderencia, color:COLOR_REALIZADO, fmt:fmtPct},
       {key:"Programadas", val:w.programadas, color:"#948F86", fmt:fmtInt},
       {key:"No prazo", val:w.executadasNoPrazo, color:COLOR_REALIZADO, fmt:fmtInt},
+      ...(w.emAbertoHoje ? [{key:"Em aberto hoje", val:w.emAbertoHoje, color:"#1F5FA8", fmt:fmtInt}] : []),
     ]));
     hitRect.addEventListener("mouseleave", hideTooltip);
     svg.appendChild(hitRect);
@@ -4695,6 +4705,7 @@ function renderProgVolumeChart(weeks, granularity) {
         {key:"Programadas", val:w.programadas, color:COLOR_ORCADO, fmt:fmtInt},
         {key:"Executadas no prazo", val:w.executadasNoPrazo, color:COLOR_REALIZADO, fmt:fmtInt},
         {key:"Ader\u00eancia", val:w.aderencia, color:COLOR_REALIZADO, fmt:fmtPct},
+        ...(w.emAbertoHoje ? [{key:"Em aberto hoje", val:w.emAbertoHoje, color:"#1F5FA8", fmt:fmtInt}] : []),
       ]));
       bar.addEventListener("mouseleave", hideTooltip);
       svg.appendChild(bar);
@@ -4745,7 +4756,7 @@ function renderProgramacao() {
     <div class="kpi-card">
       <div class="kpi-label" style="color:${COLOR_REALIZADO}">Ader\u00eancia \u00e0 programa\u00e7\u00e3o</div>
       <div class="kpi-value">${fmtPct(range.aderencia)}</div>
-      <div class="kpi-sub">${range.executadasNoPrazo} de ${range.programadas} programada(s) no prazo</div>
+      <div class="kpi-sub">${range.executadasNoPrazo} de ${range.programadas} programada(s) no prazo${range.emAbertoHoje > 0 ? ` \u00b7 ${range.emAbertoHoje} em aberto hoje` : ""}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Fora de programa\u00e7\u00e3o</div>
@@ -6128,7 +6139,7 @@ function renderPainelGeral() {
       <div class="kpi-card">
         <div class="kpi-label" style="color:${COLOR_REALIZADO}">Ader\u00eancia \u00e0 programa\u00e7\u00e3o</div>
         <div class="kpi-value">${fmtPct(range.aderencia)}</div>
-        <div class="kpi-sub">${range.executadasNoPrazo} de ${range.programadas} programada(s) no prazo</div>
+        <div class="kpi-sub">${range.executadasNoPrazo} de ${range.programadas} programada(s) no prazo${range.emAbertoHoje > 0 ? ` \u00b7 ${range.emAbertoHoje} em aberto hoje` : ""}</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Fora de programa\u00e7\u00e3o</div>
