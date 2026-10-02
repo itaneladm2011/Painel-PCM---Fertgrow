@@ -1064,6 +1064,15 @@
         </div>
 
         <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>Ordens fora de programação por executante <span class="tag" id="progForaExecutanteTag"></span></div>
+          <div class="chart-wrap"><svg id="progForaExecutanteChart" width="100%" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg></div>
+          <div class="legend">
+            <span class="legend-item"><span class="legend-swatch" style="background:var(--saldo-neg)"></span>3 com mais ocorrências</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:var(--realizado)"></span>Demais executantes</span>
+          </div>
+        </div>
+
+        <div class="panel">
           <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>Ordens no período <span class="tag" id="progTableTag"></span></div>
           <div class="view-toggle" id="progStatusFilter" style="margin-bottom:12px;">
             <button data-status="todas" class="active" type="button">Todas</button>
@@ -4440,6 +4449,30 @@ function computeProgRange(records, start, end) {
   return { programadas, executadasNoPrazo, aderencia, totalExecutadas, foraDeProgramacao, pctForaDeProgramacao, desvioMedioDias, desvioCount: foraDePrazoProgramadas.length, tempoMedioBaixaDias, records: inRangeProg, recordsExec: inRangeExec };
 }
 
+// agrupa as ordens "fora de programação" (mesma definição do KPI: executada fora do prazo
+// programado OU executada sem nunca ter sido programada) por executante — pra identificar quem
+// mais tem gerado essa anomalia e poder tratar a causa (treinamento, processo, etc.)
+function computeProgForaPorExecutante(records, recordsExec) {
+  const fora = records.filter(r => r.dataExecucao && !executadaNoPrazo(r.dataProgramacao, r.dataExecucao))
+    .concat(recordsExec.filter(r => !r.dataProgramacao));
+  const totalPorExecutante = new Map();
+  recordsExec.forEach(r => {
+    const nome = r.executante || "Sem executante";
+    totalPorExecutante.set(nome, (totalPorExecutante.get(nome) || 0) + 1);
+  });
+  const foraPorExecutante = new Map();
+  fora.forEach(r => {
+    const nome = r.executante || "Sem executante";
+    foraPorExecutante.set(nome, (foraPorExecutante.get(nome) || 0) + 1);
+  });
+  const list = Array.from(foraPorExecutante.entries()).map(([nome, total]) => {
+    const totalExecutado = totalPorExecutante.get(nome) || total;
+    return { label: nome, total, pct: totalExecutado > 0 ? (total / totalExecutado) * 100 : 0 };
+  });
+  list.sort((a, b) => b.total - a.total);
+  return list;
+}
+
 function computeProgWeeklySeries(records, rangeStart, rangeEnd) {
   if (!rangeStart || !rangeEnd) return [];
   const firstWeekStart = dWeekStartSunday(rangeStart);
@@ -4708,6 +4741,80 @@ function renderProgVolumeChart(weeks, granularity) {
   svg.appendChild(el("line",{x1:marginL,y1:marginT+plotH,x2:W-marginR,y2:marginT+plotH,stroke:"#D6D2C9"}));
 }
 
+/* ============ gr\u00e1fico: ordens fora de programa\u00e7\u00e3o por executante (barras horizontais) ============
+   os 3 executantes com mais ocorr\u00eancias ficam em vermelho (destaque pra tratar a anomalia),
+   os demais no verde padr\u00e3o j\u00e1 usado pros outros gr\u00e1ficos do painel */
+function renderProgForaExecutanteChart(svgId, list) {
+  const svg = document.getElementById(svgId);
+  svg.innerHTML = "";
+  const M = isMobileView();
+  const rowH = 30;
+  const marginL = M ? 110 : 160, marginR = M ? 66 : 84, marginT = 8, marginB = 8;
+  const W = M ? 360 : 700;
+  const display = list.length ? list : [{ label: "\u2014", total: 0, pct: 0 }];
+  const plotW = W - marginL - marginR;
+  const plotH = display.length * rowH;
+  const H = plotH + marginT + marginB;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+
+  const maxVal = Math.max(1, ...display.map(a => a.total));
+  const niceMax = niceCeiling(maxVal);
+  const xScale = v => (v / niceMax) * plotW;
+
+  const defs = el("defs", {});
+  const gradRedId = svgId + "GradRed", gradGreenId = svgId + "GradGreen", shadowId = svgId + "Shadow";
+  const gradRed = el("linearGradient", { id: gradRedId, x1: "0", y1: "0", x2: "1", y2: "0" });
+  gradRed.appendChild(el("stop", { offset: "0%", "stop-color": lighten(COLOR_SALDO_NEG, 0.32) }));
+  gradRed.appendChild(el("stop", { offset: "100%", "stop-color": COLOR_SALDO_NEG }));
+  defs.appendChild(gradRed);
+  const gradGreen = el("linearGradient", { id: gradGreenId, x1: "0", y1: "0", x2: "1", y2: "0" });
+  gradGreen.appendChild(el("stop", { offset: "0%", "stop-color": lighten(COLOR_REALIZADO, 0.32) }));
+  gradGreen.appendChild(el("stop", { offset: "100%", "stop-color": COLOR_REALIZADO }));
+  defs.appendChild(gradGreen);
+  const shadow = el("filter", { id: shadowId, x: "-20%", y: "-60%", width: "140%", height: "220%" });
+  shadow.appendChild(el("feDropShadow", { dx: "0", dy: "1", stdDeviation: "1", "flood-color": "#221610", "flood-opacity": "0.16" }));
+  defs.appendChild(shadow);
+  svg.appendChild(defs);
+
+  const ticks = 4;
+  for (let i = 0; i <= ticks; i++) {
+    const v = niceMax * i / ticks;
+    const x = marginL + xScale(v);
+    svg.appendChild(el("line", { x1: x, y1: marginT, x2: x, y2: marginT + plotH, stroke: "#ECEBE6", "stroke-dasharray": "3 3" }));
+  }
+
+  display.forEach((a, i) => {
+    const gy = marginT + i * rowH + rowH / 2;
+    const barH = Math.min(18, rowH * 0.6);
+    const w = Math.max(0, xScale(a.total));
+    const destaque = i < 3 && a.total > 0;
+    const color = destaque ? COLOR_SALDO_NEG : COLOR_REALIZADO;
+    const gradId = destaque ? gradRedId : gradGreenId;
+
+    const label = el("text", { x: marginL - 8, y: gy + 3.5, "text-anchor": "end", "font-size": 9.5, fill: "#34302B", "font-weight": 600, "font-family": "'IBM Plex Mono',monospace" });
+    const maxChars = Math.floor((marginL - 10) / 5.8);
+    label.textContent = a.label.length > maxChars ? a.label.slice(0, maxChars - 1) + "\u2026" : a.label;
+    svg.appendChild(label);
+
+    const bar = el("rect", { x: marginL, y: gy - barH / 2, width: w, height: barH, rx: 4, fill: `url(#${gradId})`, filter: `url(#${shadowId})` });
+    bar.style.cursor = "pointer";
+    bar.addEventListener("mousemove", (evt) => showTooltip(evt, a.label, [
+      { key: "Fora de programa\u00e7\u00e3o", val: a.total, color, fmt: fmtInt },
+      { key: "% das ordens dele(a) no per\u00edodo", val: a.pct, color, fmt: fmtPct },
+    ]));
+    bar.addEventListener("mouseleave", hideTooltip);
+    svg.appendChild(bar);
+
+    if (a.total > 0) {
+      const vLabel = el("text", { x: marginL + w + 6, y: gy + 3.5, "text-anchor": "start", "font-size": 9, fill: color, "font-weight": 700, "font-family": "'IBM Plex Mono',monospace" });
+      vLabel.textContent = `${fmtInt(a.total)} \u00b7 ${fmtPct(a.pct)}`;
+      svg.appendChild(vLabel);
+    }
+  });
+
+  svg.appendChild(el("line", { x1: marginL, y1: marginT, x2: marginL, y2: marginT + plotH, stroke: "#D6D2C9" }));
+}
+
 /* ============ render principal do painel de Programa\u00e7\u00e3o ============ */
 function renderProgramacao() {
   if (!progData) return;
@@ -4758,6 +4865,10 @@ function renderProgramacao() {
 
   renderProgWeeklyChart(series, granularity);
   renderProgVolumeChart(series, granularity);
+
+  const foraPorExecutante = computeProgForaPorExecutante(range.records, range.recordsExec);
+  document.getElementById("progForaExecutanteTag").textContent = `${range.foraDeProgramacao} ordem(ns)`;
+  renderProgForaExecutanteChart("progForaExecutanteChart", foraPorExecutante);
 
   const byId = new Map();
   range.records.forEach(r => byId.set(r.codOrdem, r));
