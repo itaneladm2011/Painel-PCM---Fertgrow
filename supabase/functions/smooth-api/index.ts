@@ -410,6 +410,11 @@ Deno.serve(async (req: Request) => {
         // histórico de geração (menos confiável, às vezes reflete a data de geração) quando a OS
         // ainda não foi gerada
         dataExecucaoPrevista: osPrazoMaximo || toIsoOrNull(r.dataExecucao),
+        // data "crua" do histórico de geração, sem o ajuste do prazoMaximo acima — usada só como
+        // âncora pra projetar a PRÓXIMA ocorrência (data real + periodicidade do plano). Se usasse
+        // dataExecucaoPrevista aqui, um prazo esticado (OS aberta hoje com prazo daqui a 2 semanas)
+        // empurrava a âncora junto, abrindo um buraco entre hoje e a próxima previsão no mapa.
+        dataAnchorProjecao: toIsoOrNull(r.dataExecucao),
         idOrdemServico: r.idOrdemServico ?? null,
         codOrdem: r.codOrdem ?? null,
         osDataAbertura,
@@ -491,10 +496,13 @@ Deno.serve(async (req: Request) => {
     // Fmp/GetById porque plano de rota (indRota) deixa esse campo vazio no nível do plano
     const paresReais = new Map<string, { idFmp: string; idEquipamento: string; datas: Set<string> }>();
     records.forEach((r: any) => {
-      if (!r.idFmp || !r.idEquipamento || !r.dataExecucaoPrevista) return;
+      // ignora projeção de uma sincronização anterior que porventura ainda esteja no array nesse
+      // ponto — "par real" é só o que veio de verdade do histórico da Melvin
+      const anchorDate = r.dataAnchorProjecao || r.dataExecucaoPrevista;
+      if (!r.idFmp || !r.idEquipamento || !anchorDate || r.projetado) return;
       const chave = `${r.idFmp}|${r.idEquipamento}`;
       if (!paresReais.has(chave)) paresReais.set(chave, { idFmp: r.idFmp, idEquipamento: r.idEquipamento, datas: new Set() });
-      paresReais.get(chave)!.datas.add(String(r.dataExecucaoPrevista).slice(0, 10));
+      paresReais.get(chave)!.datas.add(String(anchorDate).slice(0, 10));
     });
     const projetadas: any[] = [];
     paresReais.forEach(({ idFmp, idEquipamento, datas }) => {
