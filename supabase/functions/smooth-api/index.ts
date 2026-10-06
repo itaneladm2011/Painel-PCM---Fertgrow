@@ -282,7 +282,7 @@ function dedupOcorrenciasDoMesmoDia(records: any[]) {
 // idEquipamento do Fmp/GetById vem vazio nesse caso (só existe no nível de cada ocorrência real,
 // em fmpGeracao.idEquipamento). Projetar por par também garante que a tag do equipamento seja
 // resolvida do mesmo jeito confiável já usado nas ocorrências reais (via Equipamento/GetAll).
-function projetarOcorrenciasDoPar(fmp: any, idFmp: string, idEquipamento: string, equip: { tag: string; descricao: string } | undefined, periodicidadesById: Map<string, { dia: number; descricao: string }>, datasReais: Set<string>, todayIso: string, cycleEndDate: Date) {
+function projetarOcorrenciasDoPar(fmp: any, idFmp: string, idEquipamento: string | null, equip: { tag: string; descricao: string } | undefined, periodicidadesById: Map<string, { dia: number; descricao: string }>, datasReais: Set<string>, todayIso: string, cycleEndDate: Date) {
   if (fmp?.isActive === false) return []; // plano cadastrado mas ainda não iniciado — não vai gerar OS de verdade
   const periodDias = fmp?.periodicidade?.dia || (fmp?.idPeriodicidade ? periodicidadesById.get(fmp.idPeriodicidade)?.dia : null);
   if (!periodDias || periodDias <= 0) return [];
@@ -493,22 +493,26 @@ Deno.serve(async (req: Request) => {
     });
 
     // pares (plano, equipamento) observados nas ocorrências REAIS — não usa o idEquipamento do
-    // Fmp/GetById porque plano de rota (indRota) deixa esse campo vazio no nível do plano
-    const paresReais = new Map<string, { idFmp: string; idEquipamento: string; datas: Set<string> }>();
+    // Fmp/GetById porque plano de rota (indRota) deixa esse campo vazio no nível do plano. E, como
+    // confirmado nos dados, plano de rota deixa o idEquipamento vazio também em CADA ocorrência do
+    // histórico (não só no plano) — por isso não exige idEquipamento aqui, senão rota nunca entra
+    // em paresReais e nunca recebe projeção nenhuma (ficava sem nenhuma previsão futura no mapa,
+    // mesmo tendo histórico recente e plano ativo).
+    const paresReais = new Map<string, { idFmp: string; idEquipamento: string | null; datas: Set<string> }>();
     records.forEach((r: any) => {
       // ignora projeção de uma sincronização anterior que porventura ainda esteja no array nesse
       // ponto — "par real" é só o que veio de verdade do histórico da Melvin
       const anchorDate = r.dataAnchorProjecao || r.dataExecucaoPrevista;
-      if (!r.idFmp || !r.idEquipamento || !anchorDate || r.projetado) return;
-      const chave = `${r.idFmp}|${r.idEquipamento}`;
-      if (!paresReais.has(chave)) paresReais.set(chave, { idFmp: r.idFmp, idEquipamento: r.idEquipamento, datas: new Set() });
+      if (!r.idFmp || !anchorDate || r.projetado) return;
+      const chave = `${r.idFmp}|${r.idEquipamento || "rota"}`;
+      if (!paresReais.has(chave)) paresReais.set(chave, { idFmp: r.idFmp, idEquipamento: r.idEquipamento ?? null, datas: new Set() });
       paresReais.get(chave)!.datas.add(String(anchorDate).slice(0, 10));
     });
     const projetadas: any[] = [];
     paresReais.forEach(({ idFmp, idEquipamento, datas }) => {
       const fmp = fmpById.get(idFmp);
       if (!fmp) return;
-      const equip = equipamentosById.get(idEquipamento);
+      const equip = idEquipamento ? equipamentosById.get(idEquipamento) : undefined;
       projetadas.push(...projetarOcorrenciasDoPar(fmp, idFmp, idEquipamento, equip, periodicidadesById, datas, todayIso, cycleEndDate));
     });
     records = records.concat(projetadas);
