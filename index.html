@@ -5512,9 +5512,14 @@ function computePreventByEquipamento(records, weeks) {
       .sort((a, b) => a.dataExecucaoPrevista < b.dataExecucaoPrevista ? -1 : 1);
     p.proximaPrevista = pendentes.length ? pendentes[0].dataExecucaoPrevista : null;
   });
+  // o mapa é sobre PREVISÃO de execução — plano sem nenhuma ocorrência futura (real ou projetada)
+  // normalmente é um plano antigo, substituído ou desativado no Melvin, e só teria linhas vazias
+  // daqui pra frente. Não tem sentido manter ele na visualização; some do mapa, mas o histórico
+  // dele continua intacto nos dados (nada é apagado, só não aparece mais como linha própria)
+  const comPrevisao = equipamentos.filter(p => p.proximaPrevista !== null);
   // agrupa visualmente por equipamento (mesma TAG fica em linhas seguidas) e, dentro do mesmo
   // equipamento, ordena por nome do plano
-  return equipamentos.sort((a, b) => a.equipLabel.localeCompare(b.equipLabel) || a.planoLabel.localeCompare(b.planoLabel));
+  return comPrevisao.sort((a, b) => a.equipLabel.localeCompare(b.equipLabel) || a.planoLabel.localeCompare(b.planoLabel));
 }
 
 const PREVENT_STATUS_COLOR = { concluida: COLOR_REALIZADO, atrasada: COLOR_SALDO_NEG, pendente: "#1F5FA8", estimado: "#8FB6DE", nao_iniciado: "#C4B896", cancelada: "#A89F93", vazio: "#E4E1DA" };
