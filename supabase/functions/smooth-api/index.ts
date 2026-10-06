@@ -384,6 +384,13 @@ Deno.serve(async (req: Request) => {
       // dataCancelada + indCancelada:true + statusTexto:"Cancelada"). Uma preventiva com OS
       // cancelada não deveria contar como atrasada (a pendência em si foi cancelada, não ficou pra trás)
       const osDataExclusao = os ? toIsoOrNull(os.dataCancelada) : (prev ? prev.osDataExclusao ?? null : null);
+      // o campo "dataExecucao" do item do histórico (Fmp/GetHistoricoGeracao, usado abaixo como
+      // fallback) reflete quando aquela ocorrência foi GERADA, não o prazo real da OS — confirmado
+      // comparando com a tela do Melvin: uma OS aberta hoje mas com prazo pra daqui a 2 semanas
+      // aparecia como "atrasada hoje" porque usávamos a data de geração em vez do prazo. Quando a OS
+      // já existe, o prazo de verdade é o campo "prazoMaximo" do objeto da OS (OrdemServico/Get) —
+      // o mesmo que a coluna "Prazo" mostra na tela de Ordens de Serviço do Melvin.
+      const osPrazoMaximo = os ? toIsoOrNull(os.prazoMaximo) : (prev ? prev.osPrazoMaximo ?? null : null);
       const fg = r.fmpGeracao ?? {};
       // resolvido via cadastro completo de equipamentos (Equipamento/GetAll) — funciona pra TODA
       // ocorrência, inclusive futura/sem OS gerada ainda, diferente da tentativa anterior que só
@@ -399,12 +406,16 @@ Deno.serve(async (req: Request) => {
         idEquipamento: fg.idEquipamento ?? null,
         equipamentoTag,
         equipamentoDescricao,
-        dataExecucaoPrevista: toIsoOrNull(r.dataExecucao), // data esperada da ocorrência (não é a execução real)
+        // prioriza o prazo real da OS (prazoMaximo) quando ela já existe; só cai pro campo do
+        // histórico de geração (menos confiável, às vezes reflete a data de geração) quando a OS
+        // ainda não foi gerada
+        dataExecucaoPrevista: osPrazoMaximo || toIsoOrNull(r.dataExecucao),
         idOrdemServico: r.idOrdemServico ?? null,
         codOrdem: r.codOrdem ?? null,
         osDataAbertura,
         osDataEncerramento,
         osDataExclusao,
+        osPrazoMaximo,
       };
     });
 
