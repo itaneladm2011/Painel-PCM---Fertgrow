@@ -1875,11 +1875,16 @@ function renderTrendChart(months, highlightLabel, svgId) {
       const neighborCy = i === 0 ? nextCy : prevCy;
       if (neighborCy !== null) {
         const proj = (neighborCy - cy) / stepX * 26;
-        // ponto de ponta que é vale precisa empurrar o rótulo pra baixo, não pra cima — virar sempre
-        // pra cima jogava o rótulo em cima da própria linha quando a queda era íngreme
-        dy = isValley
-          ? Math.min(34, Math.max(10, -proj + 6))
-          : Math.max(-34, Math.min(-10, proj - 6));
+        if (isValley) {
+          // abaixo do ponto já é seguro (a linha que chega nele vem sempre por cima) — não precisa
+          // descer tanto quanto a inclinação mandava, senão o rótulo grudava na data do eixo X
+          // quando a queda era forte. Em vez disso, joga a diferença pro lado.
+          dy = 10;
+          const extra = Math.min(16, Math.max(0, -proj - 10));
+          lxOff = i === 0 ? lxOff + extra : lxOff - extra;
+        } else {
+          dy = Math.max(-34, Math.min(-10, proj - 6));
+        }
       }
     }
     // perto da margem: empurra o mínimo pra caber, sem virar pro outro lado do ponto (virar
@@ -3165,11 +3170,16 @@ function renderWeeklyLineChart(svgId, weeks, valueKey, color, fmtFn, highlightSt
       const neighborCy = i === 0 ? nextCy : prevCy;
       if (neighborCy !== null) {
         const proj = (neighborCy - cy) / stepX * 26;
-        // ponto de ponta que é vale precisa empurrar o rótulo pra baixo, não pra cima — virar sempre
-        // pra cima jogava o rótulo em cima da própria linha quando a queda era íngreme
-        dy = isValley
-          ? Math.min(34, Math.max(10, -proj + 6))
-          : Math.max(-34, Math.min(-10, proj - 6));
+        if (isValley) {
+          // abaixo do ponto já é seguro (a linha que chega nele vem sempre por cima) — não precisa
+          // descer tanto quanto a inclinação mandava, senão o rótulo grudava na data do eixo X
+          // quando a queda era forte. Em vez disso, joga a diferença pro lado.
+          dy = 10;
+          const extra = Math.min(16, Math.max(0, -proj - 10));
+          lx = i === 0 ? lx + extra : lx - extra;
+        } else {
+          dy = Math.max(-34, Math.min(-10, proj - 6));
+        }
       }
     }
     // perto da margem: empurra o mínimo pra caber, sem virar pro outro lado do ponto (virar
@@ -4626,13 +4636,18 @@ function renderProgWeeklyChart(weeks, granularity, svgId) {
       const neighborCy = i === 0 ? nextCy : prevCy;
       if (neighborCy !== null) {
         const proj = (neighborCy - cy) / stepX * 26;
-        // ponto de ponta que é vale (ex.: hoje, com queda forte em relação ao dia anterior) precisa
-        // empurrar o rótulo PRA BAIXO, não pra cima — virar sempre pra cima (como era antes) jogava
-        // o rótulo em cima da própria linha quando a queda era íngreme, já que o trecho que chega
-        // nesse ponto passa exatamente por cima dele
-        dy = isValley
-          ? Math.min(34, Math.max(10, -proj + 6))
-          : Math.max(-34, Math.min(-10, proj - 6));
+        if (isValley) {
+          // ponto de ponta que é vale (ex.: hoje, com queda forte em relação ao dia anterior): abaixo
+          // do ponto já é seguro (a linha que chega nele vem sempre por cima), então não precisa
+          // descer muito — só o suficiente pra não grudar no ponto. Descer tanto quanto a inclinação
+          // mandava (como antes) jogava o rótulo em cima da data no eixo X quando a queda era forte.
+          // Em vez disso, joga a diferença pro lado (mais afastado horizontalmente do ponto).
+          dy = 10;
+          const extra = Math.min(16, Math.max(0, -proj - 10));
+          lx = i === 0 ? lx + extra : lx - extra;
+        } else {
+          dy = Math.max(-34, Math.min(-10, proj - 6));
+        }
       }
     }
     // perto da margem: empurra o mínimo pra caber, sem virar pro outro lado do ponto
