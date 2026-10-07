@@ -1875,7 +1875,11 @@ function renderTrendChart(months, highlightLabel, svgId) {
       const neighborCy = i === 0 ? nextCy : prevCy;
       if (neighborCy !== null) {
         const proj = (neighborCy - cy) / stepX * 26;
-        dy = Math.max(-34, Math.min(-10, proj - 6));
+        // ponto de ponta que é vale precisa empurrar o rótulo pra baixo, não pra cima — virar sempre
+        // pra cima jogava o rótulo em cima da própria linha quando a queda era íngreme
+        dy = isValley
+          ? Math.min(34, Math.max(10, -proj + 6))
+          : Math.max(-34, Math.min(-10, proj - 6));
       }
     }
     // perto da margem: empurra o mínimo pra caber, sem virar pro outro lado do ponto (virar
@@ -3161,7 +3165,11 @@ function renderWeeklyLineChart(svgId, weeks, valueKey, color, fmtFn, highlightSt
       const neighborCy = i === 0 ? nextCy : prevCy;
       if (neighborCy !== null) {
         const proj = (neighborCy - cy) / stepX * 26;
-        dy = Math.max(-34, Math.min(-10, proj - 6));
+        // ponto de ponta que é vale precisa empurrar o rótulo pra baixo, não pra cima — virar sempre
+        // pra cima jogava o rótulo em cima da própria linha quando a queda era íngreme
+        dy = isValley
+          ? Math.min(34, Math.max(10, -proj + 6))
+          : Math.max(-34, Math.min(-10, proj - 6));
       }
     }
     // perto da margem: empurra o mínimo pra caber, sem virar pro outro lado do ponto (virar
@@ -4618,7 +4626,13 @@ function renderProgWeeklyChart(weeks, granularity, svgId) {
       const neighborCy = i === 0 ? nextCy : prevCy;
       if (neighborCy !== null) {
         const proj = (neighborCy - cy) / stepX * 26;
-        dy = Math.max(-34, Math.min(-10, proj - 6));
+        // ponto de ponta que é vale (ex.: hoje, com queda forte em relação ao dia anterior) precisa
+        // empurrar o rótulo PRA BAIXO, não pra cima — virar sempre pra cima (como era antes) jogava
+        // o rótulo em cima da própria linha quando a queda era íngreme, já que o trecho que chega
+        // nesse ponto passa exatamente por cima dele
+        dy = isValley
+          ? Math.min(34, Math.max(10, -proj + 6))
+          : Math.max(-34, Math.min(-10, proj - 6));
       }
     }
     // perto da margem: empurra o mínimo pra caber, sem virar pro outro lado do ponto
