@@ -4419,20 +4419,26 @@ function initProgFilterDefaults() {
 
 function computeProgRange(records, start, end) {
   const inRangeProg = records.filter(r => r.dataProgramacao && r.dataProgramacao >= start && r.dataProgramacao <= end && !r.dataExclusao);
-  // aderência parcial: relaciona sempre com o TOTAL programado (inclusive ordem de hoje ainda sem
-  // execução) — não exclui do denominador, senão o percentual fica artificialmente 100% quando só
-  // as poucas já decididas do dia entram na conta. Ordem sem execução simplesmente não soma no
-  // numerador ainda (não é "no prazo" nem "atrasada" pra essa conta), então o percentual nasce baixo
-  // e vai subindo ao longo do dia conforme mais ordens são executadas — isso é o esperado, não um bug.
-  const programadas = inRangeProg.length;
-  const executadasNoPrazo = inRangeProg.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
+  const inRangeExec = records.filter(r => r.dataExecucao && dOnly(r.dataExecucao) >= start && dOnly(r.dataExecucao) <= end && !r.dataExclusao);
+
+  // os KPIs agregados (aderência, fora de programação, desvio, tempo de baixa) só contam até ONTEM
+  // — hoje ainda está em curso, não é um resultado fechado pra entrar numa média/percentual "final".
+  // A tabela "Ordens no período" continua mostrando hoje normalmente (usa inRangeProg/inRangeExec
+  // completos, sem esse corte, retornados abaixo em records/recordsExec) — só os cards de resumo
+  // ignoram o dia corrente.
+  const ontem = dOnly(new Date(Date.now() - 86400000));
+  const fimKpi = end < ontem ? end : ontem;
+  const inRangeProgKpi = inRangeProg.filter(r => r.dataProgramacao <= fimKpi);
+  const inRangeExecKpi = inRangeExec.filter(r => dOnly(r.dataExecucao) <= fimKpi);
+
+  const programadas = inRangeProgKpi.length;
+  const executadasNoPrazo = inRangeProgKpi.filter(r => r.dataExecucao && executadaNoPrazoSemana(r.dataProgramacao, r.dataExecucao)).length;
   const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
 
-  const inRangeExec = records.filter(r => r.dataExecucao && dOnly(r.dataExecucao) >= start && dOnly(r.dataExecucao) <= end && !r.dataExclusao);
-  const totalExecutadas = inRangeExec.length;
+  const totalExecutadas = inRangeExecKpi.length;
   // fora de programação: executada em data posterior à programada (atraso real). Antecipação e virada de turno (00:00-07:00 do dia seguinte) contam como no prazo.
-  const foraDePrazoProgramadas = inRangeProg.filter(r => r.dataExecucao && !executadaNoPrazo(r.dataProgramacao, r.dataExecucao));
-  const foraDeProgramacaoNaoProgramadas = inRangeExec.filter(r => !r.dataProgramacao).length;
+  const foraDePrazoProgramadas = inRangeProgKpi.filter(r => r.dataExecucao && !executadaNoPrazo(r.dataProgramacao, r.dataExecucao));
+  const foraDeProgramacaoNaoProgramadas = inRangeExecKpi.filter(r => !r.dataProgramacao).length;
   const foraDeProgramacao = foraDePrazoProgramadas.length + foraDeProgramacaoNaoProgramadas;
   const pctForaDeProgramacao = programadas > 0 ? (foraDeProgramacao / programadas) * 100 : 0;
 
@@ -4441,7 +4447,7 @@ function computeProgRange(records, start, end) {
     ? foraDePrazoProgramadas.reduce((s, r) => s + (dOnly(r.dataExecucao) - r.dataProgramacao) / 86400000, 0) / foraDePrazoProgramadas.length
     : 0;
 
-  const comEncerramento = inRangeExec.filter(r => r.dataEncerramento);
+  const comEncerramento = inRangeExecKpi.filter(r => r.dataEncerramento);
   const tempoMedioBaixaDias = comEncerramento.length > 0
     ? comEncerramento.reduce((s, r) => s + (r.dataEncerramento - r.dataExecucao) / 86400000, 0) / comEncerramento.length
     : 0;
