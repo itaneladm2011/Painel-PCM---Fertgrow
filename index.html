@@ -4940,6 +4940,8 @@ function renderProgTableRows() {
   }
   filtered.forEach(r => {
     const tr = document.createElement("tr");
+    tr.className = "prog-order-row";
+    tr.style.cursor = "pointer";
     tr.innerHTML = `
       <td style="text-align:left;">${esc(r.codOrdem)}</td>
       <td style="text-align:left;">${esc(r.tag || r.descricaoEquipamento || "\u2014")}</td>
@@ -4949,7 +4951,24 @@ function renderProgTableRows() {
       <td style="text-align:left;">${esc(r.executante || "\u2014")}</td>
       <td style="text-align:left;"><span style="color:${r.statusColor};font-weight:600;">${r.status}</span></td>
     `;
+    const detailTr = document.createElement("tr");
+    detailTr.className = "prog-order-detail";
+    detailTr.style.display = "none";
+    detailTr.innerHTML = `
+      <td colspan="7" style="background:var(--line2);">
+        <div style="display:flex;flex-direction:column;gap:4px;padding:4px 2px;">
+          <div><b>Descri\u00e7\u00e3o da ordem:</b> ${esc(r.descricaoOs || "\u2014")}</div>
+          <div><b>Tipo de ordem:</b> ${esc(r.tipoManutencao || "\u2014")}</div>
+          <div><b>Equipamento:</b> ${esc(r.descricaoEquipamento || r.tag || "\u2014")}</div>
+        </div>
+      </td>
+    `;
+    tr.addEventListener("click", () => {
+      const isOpen = detailTr.style.display !== "none";
+      detailTr.style.display = isOpen ? "none" : "table-row";
+    });
     tbody.appendChild(tr);
+    tbody.appendChild(detailTr);
   });
 }
 document.querySelectorAll("#progStatusFilter button").forEach(b => b.addEventListener("click", () => {

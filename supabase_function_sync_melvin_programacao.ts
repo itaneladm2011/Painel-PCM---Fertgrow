@@ -127,6 +127,30 @@ async function fetchWindow(token: string, dateField: "programacao" | "execucao",
   return items;
 }
 
+// busca o objeto completo de uma OS — usado só pra pegar o tipo de manutenção (ex.: "Lubrificação de
+// Mancal"), que o relatório de cumprimento de programação não traz. idOrdemServicoProgramacao do
+// relatório já É o id da própria OS (confirmado testando direto contra OrdemServico/Get).
+async function fetchOrdemServico(token: string, id: string) {
+  const url = `${MELVIN_BASE}/api/services/app/OrdemServico/Get?Id=${encodeURIComponent(id)}`;
+  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!resp.ok) return null;
+  const json = await resp.json();
+  return json?.result ?? null;
+}
+const OS_LOOKUP_CONCURRENCY = 6;
+async function fetchTiposEmLotes(token: string, ids: string[]) {
+  const byId = new Map<string, string>();
+  for (let i = 0; i < ids.length; i += OS_LOOKUP_CONCURRENCY) {
+    const batch = ids.slice(i, i + OS_LOOKUP_CONCURRENCY);
+    const results = await Promise.all(batch.map((id) => fetchOrdemServico(token, id).catch(() => null)));
+    batch.forEach((id, idx) => {
+      const tipo = results[idx]?.tipoManutencao?.descricao;
+      if (tipo) byId.set(id, tipo);
+    });
+  }
+  return byId;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
   try {
@@ -173,19 +197,37 @@ Deno.serve(async (req: Request) => {
       rawById.set(id, r);
     }
 
-    const fetched = Array.from(rawById.values()).map((r) => ({
-      id: r.idOrdemServicoProgramacao || r.idProgramacao || `cod-${r.codOrdem}`,
-      codOrdem: r.codOrdem ?? "",
-      tag: r.tag ?? "",
-      descricaoOs: r.descricaoOs ?? "",
-      descricaoEquipamento: r.descricaoEquipamento ?? "",
-      dataCriada: toDateOnlyIso(r.dataCriada),
-      dataProgramacao: toDateOnlyIso(r.dataProgramacao),
-      dataExclusao: toDateOnlyIso(r.dataExclusao),
-      dataExecucao: toDateTimeIso(r.dataExecucao),
-      dataEncerramento: toDateTimeIso(r.dataEncerramento),
-      executante: r.executante ?? "",
-    }));
+    // tipo de manutenção (ex.: "Lubrificação de Mancal") não vem no relatório de cumprimento —
+    // busca à parte em OrdemServico/Get, só pra quem ainda não tem isso guardado de uma sincronização
+    // anterior (o tipo nunca muda depois que a OS existe, não precisa reconsultar pra sempre)
+    const existingById = new Map<string, any>((existing?.records ?? []).map((r: any) => [r.id, r]));
+    const idsParaTipo: string[] = [];
+    rawById.forEach((r, id) => {
+      if (!r.idOrdemServicoProgramacao) return;
+      const prev = existingById.get(id);
+      if (!prev || !prev.tipoManutencao) idsParaTipo.push(r.idOrdemServicoProgramacao);
+    });
+    const tiposById = await fetchTiposEmLotes(token, Array.from(new Set(idsParaTipo)));
+
+    const fetched = Array.from(rawById.entries()).map(([id, r]) => {
+      const prev = existingById.get(id);
+      const tipoManutencao = (r.idOrdemServicoProgramacao ? tiposById.get(r.idOrdemServicoProgramacao) : null)
+        ?? (prev ? prev.tipoManutencao ?? null : null);
+      return {
+        id,
+        codOrdem: r.codOrdem ?? "",
+        tag: r.tag ?? "",
+        descricaoOs: r.descricaoOs ?? "",
+        descricaoEquipamento: r.descricaoEquipamento ?? "",
+        dataCriada: toDateOnlyIso(r.dataCriada),
+        dataProgramacao: toDateOnlyIso(r.dataProgramacao),
+        dataExclusao: toDateOnlyIso(r.dataExclusao),
+        dataExecucao: toDateTimeIso(r.dataExecucao),
+        dataEncerramento: toDateTimeIso(r.dataEncerramento),
+        executante: r.executante ?? "",
+        tipoManutencao,
+      };
+    });
 
     let records: any[];
     if (fullFetch) {
@@ -228,6 +270,7 @@ Deno.serve(async (req: Request) => {
         totalProgramacao: byProgramacao.length,
         totalExecucao: byExecucao.length,
         ordensNoHistorico: records.length,
+        tiposConsultados: idsParaTipo.length,
       }),
       { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
