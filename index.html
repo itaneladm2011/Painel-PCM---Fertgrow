@@ -4941,9 +4941,10 @@ function renderProgramacao() {
     let status, statusColor;
     if (!r.dataProgramacao) { status = "Realizadas com atraso"; statusColor = "#B08900"; }
     else if (!r.dataExecucao) {
-      // ordem programada para hoje: o dia ainda não fechou, então não é "pendente" ainda — conta como
-      // "No prazo" (ainda em aberto, dentro do prazo) — diferente de "Realizada no prazo" (já executada)
-      if (+r.dataProgramacao === +dOnly(new Date())) { status = "No prazo"; statusColor = "#1F5FA8"; }
+      // ordem programada para hoje OU para uma data futura: o prazo ainda não venceu, então não é
+      // "pendente" (que significa atrasada, prazo já vencido sem execução) — conta como "No prazo"
+      // (ainda em aberto, dentro do prazo) — diferente de "Realizada no prazo" (já executada)
+      if (+r.dataProgramacao >= +dOnly(new Date())) { status = "No prazo"; statusColor = "#1F5FA8"; }
       else { status = "Pendente"; statusColor = "#948F86"; }
     }
     else if (executadaNoPrazo(r.dataProgramacao, r.dataExecucao)) { status = "Realizada no prazo"; statusColor = COLOR_REALIZADO; }
