@@ -161,14 +161,24 @@ Deno.serve(async (req: Request) => {
 
     const cycleStart = dParseIso(CYCLE_START);
     const today = dOnly(new Date());
+    // os cards de KPI mostram o MÊS ATUAL (do dia 1 até hoje), não o ciclo inteiro -- pedido do
+    // usuário pra TV refletir o desempenho corrente, não um acumulado desde julho que dilui o mês.
+    // Os gráficos de tendência (meses/série) continuam olhando o ciclo inteiro, só servem de contexto.
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const MESES_FULL = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const currentMonthLabel = `${MESES_FULL[today.getMonth()]}/${today.getFullYear()}`;
 
     // ---- Custos ----
     let custos = null;
     const custosData = byKey.get(STORAGE_KEY);
     if (custosData && custosData.consolidated) {
-      const kpi = custosData.consolidated.ciclo;
-      const aderencia = kpi.orcado ? (kpi.realizado / kpi.orcado) * 100 : 0;
-      custos = { ciclo: kpi, aderencia, months: custosData.consolidated.months };
+      const mes = (custosData.consolidated.months || []).find((m: any) => m.label === currentMonthLabel);
+      if (mes) {
+        const aderencia = mes.orcado ? (mes.realizado / mes.orcado) * 100 : 0;
+        custos = { mes, aderencia, months: custosData.consolidated.months };
+      }
+      // se não achar o mês atual na planilha (ainda não chegou/não foi carregado), custos fica null
+      // -- melhor não mostrar o slide do que mostrar um "mês atual" com zero errado
     }
 
     // ---- Disponibilidade ----
@@ -176,11 +186,9 @@ Deno.serve(async (req: Request) => {
     const dispDataRaw = byKey.get(DISP_STORAGE_KEY);
     if (dispDataRaw && Array.isArray(dispDataRaw.records) && dispDataRaw.records.length) {
       const records = dispDataRaw.records.map((r: any) => ({ ...r, date: dParseIso(r.date) }));
-      let minD = records[0].date;
-      records.forEach((r: any) => { if (r.date < minD) minD = r.date; });
       const plantCount = Math.max(1, (dispDataRaw.plants || []).length);
-      const rangeStats = computeDispRange(records, dOnly(minD), today, plantCount);
-      const dailySeries = computeDailySeries(records, dOnly(minD), today);
+      const rangeStats = computeDispRange(records, monthStart, today, plantCount);
+      const dailySeries = computeDailySeries(records, monthStart, today);
       const plantStats = computePlantStats(rangeStats.records, rangeStats.days, dispDataRaw.plants);
       disponibilidade = {
         disponibilidade: rangeStats.disponibilidade,
@@ -203,7 +211,7 @@ Deno.serve(async (req: Request) => {
         dataExecucao: r.dataExecucao ? new Date(r.dataExecucao) : null,
         dataEncerramento: r.dataEncerramento ? new Date(r.dataEncerramento) : null,
       }));
-      const range = computeProgRange(records, cycleStart, today);
+      const range = computeProgRange(records, monthStart, today);
       const series = computeProgMonthlySeries(records, cycleStart, today);
       programacao = { ...range, series };
     }
