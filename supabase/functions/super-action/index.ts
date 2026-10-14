@@ -1,222 +1,108 @@
 // ============================================================
 // Supabase Edge Function: sync-melvin-solicitacoes
-// Autentica na API do Melvin (CMMS) e busca as Solicitações de
-// Serviço, gravando no Supabase na chave que o painel de
-// Solicitações de Serviço lê (painelSolicitacoes_data_v1).
+// Busca Solicitações de Serviço através da API oficial de integração
+// do Melvin (PowerBI/GetDadosIntegracao, mesmo endpoint usado por
+// Programação e Preventivas -- ver sync-melvin-programacao pro
+// histórico completo de por que migramos pra cá). Grava no Supabase
+// na chave que o painel lê (painelSolicitacoes_data_v1).
 //
-// PREMISSA (definida pelo usuário): uma solicitação é considerada
-// "atendida" no momento em que uma Ordem de Serviço é aberta
-// atrelada a ela (campo idOrdemServico preenchido) — não precisa a
-// OS estar encerrada. As duas médias de tempo pedidas usam sempre a
-// data de ABERTURA da solicitação como referência:
-//   - tempo de atendimento = dataAbertura da OS vinculada − dataAbertura da solicitação
-//   - tempo de encerramento = dataEncerramento da OS vinculada − dataAbertura da solicitação
+// LIMITAÇÃO IMPORTANTE (confirmada pela própria Melvin na reunião de
+// 2026-10-13, e por eles mesmos no retorno escrito): esse feed é
+// centrado em Ordem de Serviço. Uma solicitação só aparece aqui
+// quando já virou uma OS (campo Solicitacoes[] aninhado dentro da
+// OS). Uma solicitação que AINDA NÃO virou OS ("pendente") ou que foi
+// arquivada/descartada pelo planejador sem nunca virar OS
+// ("arquivada") simplesmente não existe nesse feed -- a Melvin já
+// está desenvolvendo uma API separada pra cobrir essa parte, sem
+// prazo definido ainda.
 //
-// A lista de solicitações (SolicitacaoServico/GetGridAll) não traz as
-// datas da OS vinculada, só o id dela — por isso, para cada
-// solicitação atendida cujas datas da OS ainda não conhecemos (ou
-// cuja OS ainda estava aberta na última sincronização, podendo ter
-// fechado desde então), buscamos a OS individualmente
-// (OrdemServico/Get?Id=...) e guardamos o resultado. Uma vez que a
-// OS aparece com dataEncerramento preenchida, ela nunca mais precisa
-// ser rebuscada (não muda mais) — isso mantém as execuções de hora
-// em hora rápidas mesmo com o histórico do ciclo inteiro.
-//
-// HISTÓRICO DO CICLO: mesma estratégia das outras sincronizações do
-// Melvin/Evocon. Na primeira execução (ou com ?full=1 na URL) busca
-// tudo desde CYCLE_START. Nas execuções seguintes busca só uma
-// janela recente (REFRESH_DAYS) e mescla com o histórico já salvo.
-//
-// SEGREDOS: usa os mesmos MELVIN_USERNAME / MELVIN_PASSWORD já
-// cadastrados para a sincronização de Programação (secrets são do
-// projeto inteiro, não por função — não precisa cadastrar de novo).
-//
-// PLANTA: a lista simples (SolicitacaoServico/GetAll) não traz o setor
-// de forma utilizável (idSetor da solicitação vem sempre zerado, e
-// resolver pelo setor do equipamento trouxe outra coisa — códigos
-// internos tipo "MTZ-ADM", não as plantas). A tela de Solicitações do
-// próprio Melvin usa outro endpoint para popular a grade
-// (SolicitacaoServico/GetGridAll), cujo retorno já vem com o setor
-// pronto em texto (setorDescricao, ex.: "PLANTA 01") — confirmado
-// comparando com o print da tela do usuário. Por isso a busca da
-// lista inteira trocou de GetAll para GetGridAll.
+// Por isso, esta sincronização só consegue preencher os estados
+// "atendida" (OS aberta, ainda não encerrada) e "concluida" (OS
+// encerrada) -- "pendente" e "arquivada" sempre vêm como zero daqui,
+// NÃO porque não existam de verdade, mas porque não há como
+// enxergá-las por este caminho. O painel mostra um aviso sobre isso
+// (ver index.html, painel de Solicitações) pra não passar a
+// impressão de que a fila de pendências está vazia.
 // ============================================================
 
 const STORAGE_KEY = "painelSolicitacoes_data_v1";
-const MELVIN_BASE = "https://api-novo.oimelvin.com.br";
-const CYCLE_START = "2026-07-01"; // início do ciclo 26/27 (mesmo dos outros painéis)
-const REFRESH_DAYS = 45;
-const PAGE_SIZE = 500;
-const OS_LOOKUP_CONCURRENCY = 6; // nº de buscas de OS individual em paralelo
+const INTEGRATION_URL = "https://api-novo.oimelvin.com.br/api/services/app/PowerBI/GetDadosIntegracao";
+const CODIGO_INTEGRACAO = "e2a31022-86f6-412d-b9f5-ccd1f1d36cff";
+const CYCLE_START = "2026-08-01"; // a Fertgrow só começou a usar o Melvin em agosto/2026
+function hojeIso(): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  const d = new Date();
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function addDiasIso(iso: string, dias: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + dias);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+const CYCLE_END = addDiasIso(hojeIso(), 120);
 
-// necessário pro botão "Sincronizar agora" do painel (chamado direto do navegador,
-// cron via pg_net não precisa disso mas não atrapalha)
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function dIso(d: Date) {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+function dateOnly(iso: string | null | undefined): string | null {
+  if (!iso || typeof iso !== "string") return null;
+  return iso.slice(0, 10);
 }
-
-function parseMelvinDate(v: unknown): Date | null {
-  if (!v || typeof v !== "string") return null;
-  const s = v.trim();
-  if (!s) return null;
-  const br = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(s);
-  if (br) {
-    const year = br[3].length < 4 ? 2000 + Number(br[3]) : Number(br[3]);
-    return new Date(year, Number(br[2]) - 1, Number(br[1]), Number(br[4] || 0), Number(br[5] || 0), Number(br[6] || 0));
-  }
-  const iso = new Date(s);
-  return isNaN(iso.getTime()) ? null : iso;
-}
-function toIsoOrNull(v: unknown): string | null {
-  const d = parseMelvinDate(v);
-  return d ? d.toISOString() : null;
-}
-
-async function authenticate(username: string, password: string): Promise<string> {
-  const resp = await fetch(`${MELVIN_BASE}/api/TokenAuth/Authenticate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userNameOrEmailAddress: username, password, rememberClient: false }),
-  });
-  if (!resp.ok) {
-    const bodyText = await resp.text().catch(() => "");
-    throw new Error(`Falha ao autenticar no Melvin (${resp.status}): ${bodyText.slice(0, 300)}`);
-  }
-  const json = await resp.json();
-  const token = json?.result?.accessToken;
-  if (!token) throw new Error("Login no Melvin OK, mas a resposta não trouxe accessToken.");
-  return token;
-}
-
-async function fetchSolicitacoes(token: string, start: string, end: string) {
-  const items: any[] = [];
-  let skip = 0;
-  for (;;) {
-    const params = new URLSearchParams({
-      DataInicio: start,
-      DataFim: end,
-      SkipCount: String(skip),
-      MaxResultCount: String(PAGE_SIZE),
-    });
-    const url = `${MELVIN_BASE}/api/services/app/SolicitacaoServico/GetGridAll?${params.toString()}`;
-    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!resp.ok) {
-      const bodyText = await resp.text().catch(() => "");
-      throw new Error(`Melvin respondeu ${resp.status} em SolicitacaoServico/GetGridAll: ${bodyText.slice(0, 300)}`);
-    }
-    const page = await resp.json();
-    const pageItems: any[] = page?.result?.items ?? [];
-    items.push(...pageItems);
-    const total = page?.result?.totalCount ?? pageItems.length;
-    skip += PAGE_SIZE;
-    if (skip >= total || pageItems.length === 0) break;
-  }
-  return items;
-}
-
-async function fetchOrdemServico(token: string, id: string) {
-  const url = `${MELVIN_BASE}/api/services/app/OrdemServico/Get?Id=${encodeURIComponent(id)}`;
-  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!resp.ok) return null;
-  const json = await resp.json();
-  return json?.result ?? null;
-}
-
-// busca as OS's vinculadas em lotes paralelos (evita N chamadas sequenciais e não estoura o tempo da função)
-async function fetchOrdensEmLotes(token: string, ids: string[]) {
-  const byId = new Map<string, any>();
-  for (let i = 0; i < ids.length; i += OS_LOOKUP_CONCURRENCY) {
-    const batch = ids.slice(i, i + OS_LOOKUP_CONCURRENCY);
-    const results = await Promise.all(batch.map((id) => fetchOrdemServico(token, id).catch(() => null)));
-    batch.forEach((id, idx) => { if (results[idx]) byId.set(id, results[idx]); });
-  }
-  return byId;
+function latestDataValidacao(acoes: any[] | undefined): string | null {
+  if (!acoes || !acoes.length) return null;
+  const datas = acoes.map((a) => a.DataValidacao).filter((d) => !!d).sort();
+  return datas.length ? datas[datas.length - 1] : null;
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
   try {
-    const username = Deno.env.get("MELVIN_USERNAME");
-    const password = Deno.env.get("MELVIN_PASSWORD");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!username || !password) throw new Error("MELVIN_USERNAME / MELVIN_PASSWORD não configurados nos secrets do projeto.");
     if (!supabaseUrl || !serviceRoleKey) throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY ausentes (deveriam existir automaticamente).");
-
-    const forceFull = new URL(req.url).searchParams.get("full") === "1";
     const sbHeaders = { "apikey": serviceRoleKey, "Authorization": `Bearer ${serviceRoleKey}` };
 
-    let existing: any = null;
-    const exResp = await fetch(`${supabaseUrl}/rest/v1/app_state?key=eq.${STORAGE_KEY}&select=data`, { headers: sbHeaders });
-    if (exResp.ok) {
-      const rows = await exResp.json();
-      existing = rows?.[0]?.data ?? null;
+    const url = `${INTEGRATION_URL}?codigoIntegracao=${CODIGO_INTEGRACAO}&dataInicio=${CYCLE_START}&dataFim=${CYCLE_END}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const bodyText = await resp.text().catch(() => "");
+      throw new Error(`Melvin respondeu ${resp.status} em PowerBI/GetDadosIntegracao: ${bodyText.slice(0, 300)}`);
     }
-    const hasHistory = !!existing && Array.isArray(existing.records) && !!existing.coverageStart && existing.coverageStart <= CYCLE_START;
-    const fullFetch = forceFull || !hasHistory;
-    const existingById = new Map<string, any>((existing?.records ?? []).map((r: any) => [r.id, r]));
+    const json = await resp.json();
+    if (json.success === false) throw new Error(`Melvin retornou success=false: ${JSON.stringify(json).slice(0, 300)}`);
+    const raw: any[] = (json.result ?? []).filter((r: any) => r.Solicitacoes && r.Solicitacoes.length);
 
-    const end = new Date();
-    const refreshFrom = dIso(new Date(end.getTime() - REFRESH_DAYS * 86400000));
-    const startTime = fullFetch ? CYCLE_START : (refreshFrom > CYCLE_START ? refreshFrom : CYCLE_START);
-    const endTime = dIso(end);
-
-    const token = await authenticate(username, password);
-    const raw = await fetchSolicitacoes(token, startTime, endTime);
-
-    // decide quais OS's vinculadas precisam ser (re)buscadas: novas, ou cujo encerramento ainda não conhecíamos
-    const idsParaBuscar: string[] = [];
+    const records: any[] = [];
     raw.forEach((r) => {
-      if (!r.idOrdemServico) return;
-      const prev = existingById.get(r.id);
-      if (!prev || !prev.osDataEncerramento) idsParaBuscar.push(r.idOrdemServico);
+      const osDataEncerramento = latestDataValidacao(r.Acoes);
+      (r.Solicitacoes as any[]).forEach((s, idx) => {
+        records.push({
+          id: `${r.Id}_${idx}`,
+          codigo: s.NumeroSolicitacao ?? null,
+          dataAbertura: dateOnly(s.DataSolicitacao),
+          status: null,
+          statusTexto: osDataEncerramento ? "Concluída" : "Atendida",
+          arquivada: false, // nunca detectável por este feed -- ver comentário no topo do arquivo
+          idOrdemServico: r.Id,
+          codigoOrdemServicoDestino: r.Numero != null ? String(r.Numero) : "",
+          osDataAbertura: dateOnly(r.DataAbertura),
+          osDataEncerramento,
+          solicitante: s.NomeSolicitante || "",
+          canalTexto: "",
+          prioridade: r.Prioridade || "",
+          equipamento: r.TagAtivo || r.NomeAtivo || "",
+          oficina: r.Oficina || "",
+          setor: r.Setor || "",
+          solicitacao: s.DescricaoSolicitacao || "",
+        });
+      });
     });
-    const osById = await fetchOrdensEmLotes(token, Array.from(new Set(idsParaBuscar)));
+    const filtradas = records.filter((r) => r.dataAbertura && r.dataAbertura >= CYCLE_START);
 
-    const fetched = raw.map((r) => {
-      const prev = existingById.get(r.id);
-      const os = r.idOrdemServico ? osById.get(r.idOrdemServico) : null;
-      const osDataAbertura = os ? toIsoOrNull(os.dataAbertura) : (prev ? prev.osDataAbertura ?? null : null);
-      const osDataEncerramento = os ? toIsoOrNull(os.dataEncerramento) : (prev ? prev.osDataEncerramento ?? null : null);
-      const codigoOrdemServicoDestino = os && os.codOrdem != null ? String(os.codOrdem) : (prev ? prev.codigoOrdemServicoDestino ?? "" : "");
-      return {
-        id: r.id,
-        codigo: r.codigo ?? null,
-        dataAbertura: toIsoOrNull(r.dataAbertura),
-        status: r.status ?? null,
-        statusTexto: r.statusTexto ?? "",
-        arquivada: !!r.arquivada,
-        idOrdemServico: r.idOrdemServico ?? null,
-        codigoOrdemServicoDestino,
-        osDataAbertura,
-        osDataEncerramento,
-        solicitante: r.solicitante ?? "",
-        canalTexto: r.canalTexto ?? "",
-        prioridade: r.descricaoPrioridade ?? "",
-        equipamento: r.equipamentoTag || r.equipamentoDescricao || "",
-        oficina: "",
-        setor: r.setorDescricao ?? "", // pronto no próprio retorno do GetGridAll, sem precisar de lookup
-        solicitacao: r.solicitacao ?? "",
-      };
-    });
-
-    let records: any[];
-    if (fullFetch) {
-      records = fetched;
-    } else {
-      const fetchedIds = new Set(fetched.map((r) => r.id));
-      const kept = (existing.records as any[]).filter((r) => !fetchedIds.has(r.id) && (r.dataAbertura || "") < startTime);
-      records = kept.concat(fetched);
-    }
-    records = records.filter((r) => (r.dataAbertura || "") >= CYCLE_START);
-
-    const data = { records, coverageStart: CYCLE_START };
+    const data = { records: filtradas, coverageStart: CYCLE_START };
 
     const upsertResp = await fetch(`${supabaseUrl}/rest/v1/app_state`, {
       method: "POST",
@@ -228,7 +114,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         key: STORAGE_KEY,
         data,
-        file_name: "melvin-api",
+        file_name: "melvin-integracao-powerbi",
         updated_at: new Date().toISOString(),
       }),
     });
@@ -240,21 +126,19 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         ok: true,
-        modo: fullFetch ? "completo (desde o início do ciclo)" : `incremental (últimos ${REFRESH_DAYS} dias)`,
-        janelaBuscada: `${startTime} a ${endTime}`,
-        solicitacoesRecebidas: raw.length,
-        ordensConsultadas: idsParaBuscar.length,
-        solicitacoesNoHistorico: records.length,
-        solicitacoesComSetorResolvido: fetched.filter((r) => !!r.setor).length,
-        amostraSetores: Array.from(new Set(fetched.map((r) => r.setor).filter(Boolean))).slice(0, 8),
-        arquivadasRecebidas: raw.filter((r: any) => r.arquivada).length,
+        fonte: "PowerBI/GetDadosIntegracao (API oficial Melvin) -- parcial: só atendida/concluída, ver aviso no painel",
+        janelaBuscada: `${CYCLE_START} a ${CYCLE_END}`,
+        ordensComSolicitacaoVinculada: raw.length,
+        solicitacoesNoHistorico: filtradas.length,
+        concluidas: filtradas.filter((r) => r.osDataEncerramento).length,
+        atendidasAindaAbertas: filtradas.filter((r) => !r.osDataEncerramento).length,
       }),
-      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" } },
     );
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: String(e && (e as Error).message || e) }), {
+    return new Response(JSON.stringify({ ok: false, error: String((e as any)?.message || e) }), {
       status: 500,
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   }
 });

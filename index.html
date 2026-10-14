@@ -1273,6 +1273,12 @@
       </div>
 
       <div id="solicDashboard" style="display:none;">
+        <div class="panel" style="border-color:var(--status-warning);background:var(--cream);">
+          <div style="display:flex;gap:10px;align-items:flex-start;color:var(--text-strong);font-size:13px;line-height:1.5;">
+            <span style="font-size:16px;">⚠️</span>
+            <div><b>Visão parcial.</b> Por enquanto só mostramos solicitações que já viraram Ordem de Serviço (Atendida/Concluída). A API do Melvin pra solicitações ainda em aberto (Pendente) ou arquivadas não existe ainda — eles estão desenvolvendo, sem prazo definido. "Pendente"/"Arquivada" aqui sempre aparecem como zero — isso não significa que não existam, só que ainda não conseguimos enxergá-las.</div>
+          </div>
+        </div>
         <div class="panel no-collapse">
           <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Período de referência <span class="tag" id="solicRangeTag"></span></div>
           <div class="date-filter-row">
