@@ -4463,7 +4463,9 @@ function initProgFilterDefaults() {
 
 function computeProgRange(records, start, end) {
   const inRangeProg = records.filter(r => r.dataProgramacao && r.dataProgramacao >= start && r.dataProgramacao <= end && !r.dataExclusao);
-  const inRangeExec = records.filter(r => r.dataExecucao && dOnly(r.dataExecucao) >= start && dOnly(r.dataExecucao) <= end && !r.dataExclusao);
+  // ordens sem data de programação são emergenciais (não passam por programação por natureza) --
+  // ficam de fora de todo o painel de Programação por enquanto; vão ganhar uma visualização própria depois
+  const inRangeExec = records.filter(r => r.dataExecucao && r.dataProgramacao && dOnly(r.dataExecucao) >= start && dOnly(r.dataExecucao) <= end && !r.dataExclusao);
 
   // os KPIs agregados (aderência, fora de programação, desvio, tempo de baixa) só contam até ONTEM
   // — hoje ainda está em curso, não é um resultado fechado pra entrar numa média/percentual "final".
@@ -4481,9 +4483,9 @@ function computeProgRange(records, start, end) {
 
   const totalExecutadas = inRangeExecKpi.length;
   // fora de programação: executada em data posterior à programada (atraso real). Antecipação e virada de turno (00:00-07:00 do dia seguinte) contam como no prazo.
+  // (ordens sem programação nenhuma não entram mais aqui -- são emergenciais, fora do escopo deste painel)
   const foraDePrazoProgramadas = inRangeProgKpi.filter(r => r.dataExecucao && !executadaNoPrazo(r.dataProgramacao, r.dataExecucao));
-  const foraDeProgramacaoNaoProgramadas = inRangeExecKpi.filter(r => !r.dataProgramacao).length;
-  const foraDeProgramacao = foraDePrazoProgramadas.length + foraDeProgramacaoNaoProgramadas;
+  const foraDeProgramacao = foraDePrazoProgramadas.length;
   const pctForaDeProgramacao = programadas > 0 ? (foraDeProgramacao / programadas) * 100 : 0;
 
   // desvio médio: só entre as ordens que realmente saíram da data programada (as no prazo têm desvio zero e não entram)
@@ -4500,11 +4502,11 @@ function computeProgRange(records, start, end) {
 }
 
 // agrupa as ordens "fora de programação" (mesma definição do KPI: executada fora do prazo
-// programado OU executada sem nunca ter sido programada) por executante — pra identificar quem
-// mais tem gerado essa anomalia e poder tratar a causa (treinamento, processo, etc.)
+// programado) por executante — pra identificar quem mais tem gerado essa anomalia e poder tratar
+// a causa (treinamento, processo, etc.). Ordens emergenciais (sem programação) já não chegam aqui,
+// filtradas lá no computeProgRange.
 function computeProgForaPorExecutante(records, recordsExec) {
-  const fora = records.filter(r => r.dataExecucao && !executadaNoPrazo(r.dataProgramacao, r.dataExecucao))
-    .concat(recordsExec.filter(r => !r.dataProgramacao));
+  const fora = records.filter(r => r.dataExecucao && !executadaNoPrazo(r.dataProgramacao, r.dataExecucao));
   const totalPorExecutante = new Map();
   recordsExec.forEach(r => {
     const nome = r.executante || "Sem executante";
@@ -4938,9 +4940,9 @@ function renderProgramacao() {
   const combined = Array.from(byId.values()).sort((a,b) => (a.dataProgramacao||a.dataExecucao) - (b.dataProgramacao||b.dataExecucao));
 
   progTableRecords = combined.map(r => {
+    // ordens emergenciais (sem data de programação) já não chegam aqui -- filtradas no computeProgRange
     let status, statusColor;
-    if (!r.dataProgramacao) { status = "Realizadas com atraso"; statusColor = "#B08900"; }
-    else if (!r.dataExecucao) {
+    if (!r.dataExecucao) {
       // ordem programada para hoje OU para uma data futura: o prazo ainda não venceu, então não é
       // "pendente" (que significa atrasada, prazo já vencido sem execução) — conta como "No prazo"
       // (ainda em aberto, dentro do prazo) — diferente de "Realizada no prazo" (já executada)

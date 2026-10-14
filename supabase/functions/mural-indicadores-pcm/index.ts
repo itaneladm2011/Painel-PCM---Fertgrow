@@ -148,7 +148,9 @@ function computeEquipmentStats(records: any[]) {
 // ---------- Programação: computeProgRange / computeProgWeeklySeries / computeProgDailySeries (cópia fiel) ----------
 function computeProgRange(records: any[], start: Date, end: Date) {
   const inRangeProg = records.filter(r => r.dataProgramacao && r.dataProgramacao >= start && r.dataProgramacao <= end && !r.dataExclusao);
-  const inRangeExec = records.filter(r => r.dataExecucao && dOnly(r.dataExecucao) >= start && dOnly(r.dataExecucao) <= end && !r.dataExclusao);
+  // ordens sem data de programação são emergenciais (não passam por programação por natureza) --
+  // ficam de fora deste painel por enquanto, mesmo critério aplicado no index.html
+  const inRangeExec = records.filter(r => r.dataExecucao && r.dataProgramacao && dOnly(r.dataExecucao) >= start && dOnly(r.dataExecucao) <= end && !r.dataExclusao);
 
   const ontem = dOnly(new Date(Date.now() - 86400000));
   const fimKpi = end < ontem ? end : ontem;
@@ -160,8 +162,7 @@ function computeProgRange(records: any[], start: Date, end: Date) {
   const aderencia = programadas > 0 ? (executadasNoPrazo / programadas) * 100 : 0;
 
   const foraDePrazoProgramadas = inRangeProgKpi.filter(r => r.dataExecucao && !executadaNoPrazo(r.dataProgramacao, r.dataExecucao));
-  const foraDeProgramacaoNaoProgramadas = inRangeExecKpi.filter(r => !r.dataProgramacao).length;
-  const foraDeProgramacao = foraDePrazoProgramadas.length + foraDeProgramacaoNaoProgramadas;
+  const foraDeProgramacao = foraDePrazoProgramadas.length;
   const pctForaDeProgramacao = programadas > 0 ? (foraDeProgramacao / programadas) * 100 : 0;
 
   const desvioMedioDias = foraDePrazoProgramadas.length > 0
