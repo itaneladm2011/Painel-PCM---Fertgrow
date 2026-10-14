@@ -23,15 +23,21 @@
 //   - dataProgramacao: vem em DatasProgramacao[], um valor repetido
 //     por recurso/pessoa alocada na OS (3 pessoas = 3 datas iguais)
 //     -- usamos só a primeira.
-//   - dataExecucao / dataEncerramento: a API não distingue esses dois
-//     momentos (não existe um campo "data de encerramento" separado
-//     de "data de execução"). O campo mais confiável de "quando foi
-//     concluída" é Acoes[].DataValidacao -- confirmado: TODAS as 514
-//     ordens com Status=Encerrada da amostra inicial têm essa data
-//     preenchida, e nenhuma ordem em aberto tem. Usamos o mesmo valor
-//     pros dois campos (então "tempo médio de baixa" no painel tende
-//     a zero agora -- avaliar com a Melvin se faz sentido pedir um
-//     campo de encerramento separado, se esse indicador fizer falta).
+//   - dataExecucao: NÃO é Acoes[].DataValidacao (isso é quando a OS foi
+//     "baixada"/fechada no sistema, que pode ser dias depois do
+//     trabalho em si -- confirmado pelo usuário com um caso real: OS
+//     executada em 02/10 segundo o apontamento, mas baixada só em
+//     05/10). A data de execução de verdade vem de
+//     ApontamentosHoras[].DataInicio + HoraInicio (campos separados,
+//     combinados em dataExecucaoReal()) -- usamos o apontamento mais
+//     antigo, que é quando o trabalho de fato começou. Sem nenhum
+//     apontamento registrado (raro), cai pra DataValidacao como
+//     aproximação.
+//   - dataEncerramento: esse sim é Acoes[].DataValidacao -- confirmado
+//     presente em todas as 514 ordens Status=Encerrada da amostra
+//     inicial, e ausente em ordens ainda em aberto. É a data de
+//     "baixa" no sistema, distinta da execução (ver acima) -- com essa
+//     separação "tempo médio de baixa" volta a fazer sentido de novo.
 //   - dataExclusao: a API não traz uma data de cancelamento separada,
 //     só o status "Cancelada" + a justificativa (texto). Usamos a
 //     própria DataAbertura como valor não-nulo nesse campo só pra
@@ -88,6 +94,29 @@ function latestDataValidacao(acoes: any[] | undefined): string | null {
   return datas.length ? datas[datas.length - 1] : null;
 }
 
+// junta DataInicio (só a data, vem sempre com hora zerada) + HoraInicio (só a hora, campo separado)
+// num timestamp só -- confirmado com o usuário (print do Melvin, OS 457) que ApontamentosHoras é o
+// dado real de QUANDO o trabalho foi feito, diferente de Acoes[].DataValidacao (quando foi "baixada"
+// no sistema, que pode ser dias depois -- no exemplo, executada 02/10 mas baixada só em 05/10)
+function combineDataHora(dataIso: string | null | undefined, hora: string | null | undefined): string | null {
+  if (!dataIso) return null;
+  const datePart = dataIso.slice(0, 10);
+  return hora ? `${datePart}T${hora}` : `${datePart}T00:00:00`;
+}
+
+function dataExecucaoReal(r: any): string | null {
+  const apontamentos = r.ApontamentosHoras;
+  if (apontamentos && apontamentos.length) {
+    const timestamps = (apontamentos as any[])
+      .map((a) => combineDataHora(a.DataInicio, a.HoraInicio))
+      .filter((t): t is string => !!t)
+      .sort();
+    if (timestamps.length) return timestamps[0];
+  }
+  // sem apontamento registrado (raro) -- melhor usar a data de baixa como aproximação do que deixar nulo
+  return latestDataValidacao(r.Acoes);
+}
+
 function primeiroExecutante(r: any): string {
   if (r.ApontamentosHoras && r.ApontamentosHoras.length && r.ApontamentosHoras[0].Funcionario) {
     return r.ApontamentosHoras[0].Funcionario;
@@ -121,7 +150,6 @@ Deno.serve(async (req: Request) => {
 
     const records = raw.map((r) => {
       const dataProgramacaoRaw = (r.DatasProgramacao && r.DatasProgramacao.length) ? r.DatasProgramacao[0] : null;
-      const conclusao = latestDataValidacao(r.Acoes);
       return {
         codOrdem: r.Numero,
         tag: r.TagAtivo || "",
@@ -130,8 +158,8 @@ Deno.serve(async (req: Request) => {
         dataCriada: dateOnly(r.DataAbertura),
         dataProgramacao: dateOnly(dataProgramacaoRaw),
         dataExclusao: r.Status === "Cancelada" ? dateOnly(r.DataAbertura) : null,
-        dataExecucao: conclusao,
-        dataEncerramento: conclusao,
+        dataExecucao: dataExecucaoReal(r),
+        dataEncerramento: latestDataValidacao(r.Acoes),
         executante: primeiroExecutante(r),
         tipoManutencao: r.Tipo || "",
       };
