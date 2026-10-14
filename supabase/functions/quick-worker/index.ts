@@ -1,247 +1,143 @@
 // ============================================================
 // Supabase Edge Function: sync-melvin-programacao
-// Autentica na API do Melvin (CMMS) e busca o relatório de
-// cumprimento de programação, gravando no Supabase na mesma
-// chave que o painel de Programação já lê (painelProgramacao_data_v1).
+// Busca os dados de Ordens de Serviço no Melvin através da API
+// oficial de integração (PowerBI/GetDadosIntegracao, liberada pela
+// Melvin especificamente pra Fertgrow em 2026-10 após o bloqueio dos
+// endpoints internos que a gente usava antes -- ver histórico desta
+// função no git pra referência do que mudou e por quê).
 //
-// Os nomes de campo do Melvin (dataCriada, dataProgramacao,
-// dataExclusao, dataExecucao, dataEncerramento, codOrdem, tag,
-// descricaoOs, descricaoEquipamento, executante) já são IDÊNTICOS
-// às colunas da planilha que o painel lia até agora — a planilha
-// era, na prática, um export deste mesmo relatório.
+// Essa API devolve, numa chamada só, TODAS as ordens de serviço do
+// período com tudo embutido (datas de programação, ações de
+// conclusão, apontamentos de hora, plano de preventiva vinculado) --
+// não precisa mais autenticar com usuário/senha nem buscar cada OS
+// individualmente (o padrão antigo de centenas de chamadas
+// OrdemServico/Get que gerava a carga que a Melvin reclamou).
 //
-// HISTÓRICO DO CICLO: mesma estratégia da sincronização da Evocon
-// (sync-evocon). Na primeira execução (ou com ?full=1 na URL) busca
-// tudo desde CYCLE_START. Nas execuções seguintes busca só uma janela
-// recente (REFRESH_DAYS) e mescla com o histórico já salvo.
+// CÓDIGO DE INTEGRAÇÃO: é específico da Fertgrow, veio por e-mail da
+// Melvin depois da reunião de 2026-10-13. Não é segredo (funciona só
+// como um identificador de qual integração/cliente está chamando),
+// mas também não precisa ficar em nenhum outro lugar além daqui.
 //
-// Como o relatório aceita filtro por data de programação OU por data
-// de execução (mas não "OR" entre os dois ao mesmo tempo), a busca é
-// feita em DUAS passadas — uma pela janela de dataProgramacao, outra
-// pela janela de dataExecucao — e o resultado é mesclado por
-// idOrdemServicoProgramacao (chave estável do relatório).
+// MAPEAMENTO DE CAMPOS (não é 1:1 óbvio, documentado aqui pra não se
+// perder depois):
+//   - dataProgramacao: vem em DatasProgramacao[], um valor repetido
+//     por recurso/pessoa alocada na OS (3 pessoas = 3 datas iguais)
+//     -- usamos só a primeira.
+//   - dataExecucao / dataEncerramento: a API não distingue esses dois
+//     momentos (não existe um campo "data de encerramento" separado
+//     de "data de execução"). O campo mais confiável de "quando foi
+//     concluída" é Acoes[].DataValidacao -- confirmado: TODAS as 514
+//     ordens com Status=Encerrada da amostra inicial têm essa data
+//     preenchida, e nenhuma ordem em aberto tem. Usamos o mesmo valor
+//     pros dois campos (então "tempo médio de baixa" no painel tende
+//     a zero agora -- avaliar com a Melvin se faz sentido pedir um
+//     campo de encerramento separado, se esse indicador fizer falta).
+//   - dataExclusao: a API não traz uma data de cancelamento separada,
+//     só o status "Cancelada" + a justificativa (texto). Usamos a
+//     própria DataAbertura como valor não-nulo nesse campo só pra
+//     continuar funcionando o filtro "!r.dataExclusao" que o painel
+//     já usa pra excluir ordens canceladas -- a data em si não é
+//     usada em nenhum cálculo, só a presença/ausência dela.
+//   - tipoManutencao: vem direto no campo Tipo -- não precisa mais
+//     buscar OrdemServico/Get pra cada OS só pra pegar isso.
+//   - executante: a API pode listar várias pessoas (apontamentos de
+//     hora, recursos utilizados) numa mesma OS; o painel só guarda UM
+//     executante por ordem, então pegamos o primeiro nome que
+//     aparecer (apontamento de hora tem prioridade sobre recurso
+//     planejado, por ser mais próximo da execução real).
 //
-// SEGREDOS (Edge Functions > Manage secrets): MELVIN_USERNAME e
-// MELVIN_PASSWORD (login do Melvin). Nunca escreva as credenciais
-// neste arquivo. SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já existem
-// automaticamente.
-//
-// Quando começar um novo ciclo, atualize CYCLE_START abaixo e rode
-// uma vez com ?full=1 para refazer o histórico.
+// Sem incremental/merge com histórico salvo: a chamada já traz o
+// ciclo inteiro de uma vez (a API aceita até 12 meses por consulta),
+// então a cada sincronização a gente simplesmente substitui tudo --
+// mais simples e sem risco de os dois lados divergirem.
 // ============================================================
 
 const STORAGE_KEY = "painelProgramacao_data_v1";
-const MELVIN_BASE = "https://api-novo.oimelvin.com.br";
-const CYCLE_START = "2026-07-01"; // início do ciclo 26/27 (mesmo do painel de Disponibilidade)
-const CYCLE_END = "2027-06-30";   // fim do ciclo — a janela de busca vai até aqui, não só até hoje,
-                                   // senão OS programada pra uma data futura nunca é capturada (o
-                                   // Melvin deixa programar com bastante antecedência)
-const REFRESH_DAYS = 45;          // quanto do passado é reprocessado a cada execução incremental
-const PAGE_SIZE = 500;
+const INTEGRATION_URL = "https://api-novo.oimelvin.com.br/api/services/app/PowerBI/GetDadosIntegracao";
+const CODIGO_INTEGRACAO = "e2a31022-86f6-412d-b9f5-ccd1f1d36cff";
+// a Fertgrow só começou a usar o Melvin em agosto/2026 -- pedir desde julho (como os outros painéis,
+// que têm outra fonte de dado) só faria a Melvin escanear um mês inteiro sem nenhum registro, à toa.
+// CYCLE_START aqui é só o início da JANELA DE BUSCA nessa API específica, não precisa bater com o
+// "início do ciclo" usado nos outros painéis (Custos/Disponibilidade), que não dependem do Melvin.
+const CYCLE_START = "2026-08-01";
+// fim dinâmico (~120 dias à frente de hoje) em vez de fixar um ano inteiro -- a API aceita até 12
+// meses por consulta, mas pedir mais do que existe de fato só deixa a consulta mais pesada à toa
+// (a busca de teste do ciclo inteiro levou ~100s); preventivas programadas com tanta antecedência
+// assim não são o cenário comum, e isso se auto-atualiza a cada execução sem precisar editar o código
+function janelaFim(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 120);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+const CYCLE_END = janelaFim();
 
-// necessário pro botão "Sincronizar agora" do painel (chamado direto do navegador,
-// cron via pg_net não precisa disso mas não atrapalha)
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function dIso(d: Date) {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+function dateOnly(iso: string | null | undefined): string | null {
+  if (!iso || typeof iso !== "string") return null;
+  return iso.slice(0, 10);
 }
 
-// o relatório do Melvin devolve as datas já formatadas (não em ISO): aceita
-// "dd/MM/yyyy", "dd/MM/yyyy HH:mm[:ss]" e, por segurança, também ISO puro
-function parseMelvinDate(v: unknown): Date | null {
-  if (!v || typeof v !== "string") return null;
-  const s = v.trim();
-  if (!s) return null;
-  const br = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(s);
-  if (br) {
-    const year = br[3].length < 4 ? 2000 + Number(br[3]) : Number(br[3]);
-    return new Date(year, Number(br[2]) - 1, Number(br[1]), Number(br[4] || 0), Number(br[5] || 0), Number(br[6] || 0));
-  }
-  const iso = new Date(s);
-  return isNaN(iso.getTime()) ? null : iso;
-}
-// dataCriada / dataProgramacao / dataExclusao são guardadas só com a data (AAAA-MM-DD),
-// igual ao que o upload de planilha já gravava
-function toDateOnlyIso(v: unknown): string | null {
-  const d = parseMelvinDate(v);
-  return d ? dIso(d) : null;
-}
-// dataExecucao / dataEncerramento guardam data e hora (o painel usa a hora para
-// decidir se a execução ainda está "no prazo" no mesmo dia)
-function toDateTimeIso(v: unknown): string | null {
-  const d = parseMelvinDate(v);
-  return d ? d.toISOString() : null;
+function latestDataValidacao(acoes: any[] | undefined): string | null {
+  if (!acoes || !acoes.length) return null;
+  const datas = acoes.map((a) => a.DataValidacao).filter((d) => !!d).sort();
+  return datas.length ? datas[datas.length - 1] : null;
 }
 
-async function authenticate(username: string, password: string): Promise<string> {
-  const resp = await fetch(`${MELVIN_BASE}/api/TokenAuth/Authenticate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userNameOrEmailAddress: username, password, rememberClient: false }),
-  });
-  if (!resp.ok) {
-    const bodyText = await resp.text().catch(() => "");
-    throw new Error(`Falha ao autenticar no Melvin (${resp.status}): ${bodyText.slice(0, 300)}`);
+function primeiroExecutante(r: any): string {
+  if (r.ApontamentosHoras && r.ApontamentosHoras.length && r.ApontamentosHoras[0].Funcionario) {
+    return r.ApontamentosHoras[0].Funcionario;
   }
-  const json = await resp.json();
-  const token = json?.result?.accessToken;
-  if (!token) throw new Error("Login no Melvin OK, mas a resposta não trouxe accessToken.");
-  return token;
-}
-
-// busca paginada de uma janela de datas, filtrando por UM campo de data por vez
-// (dataProgramacaoInicio/Fim OU dataExecucaoInicio/Fim), conforme o relatório aceita
-async function fetchWindow(token: string, dateField: "programacao" | "execucao", start: string, end: string) {
-  const items: any[] = [];
-  let skip = 0;
-  for (;;) {
-    const params = new URLSearchParams({
-      SkipCount: String(skip),
-      MaxResultCount: String(PAGE_SIZE),
-    });
-    if (dateField === "programacao") {
-      params.set("DataProgramacaoInicio", start);
-      params.set("DataProgramacaoFim", end);
-    } else {
-      params.set("DataExecucaoInicio", start);
-      params.set("DataExecucaoFim", end);
-    }
-    const url = `${MELVIN_BASE}/api/services/app/OrdemServicoProgramacao/GetRelCumprimentoProgramacao?${params.toString()}`;
-    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!resp.ok) {
-      const bodyText = await resp.text().catch(() => "");
-      throw new Error(`Melvin respondeu ${resp.status} em GetRelCumprimentoProgramacao (${dateField}): ${bodyText.slice(0, 300)}`);
-    }
-    const page = await resp.json();
-    const pageItems: any[] = page?.result?.items ?? [];
-    items.push(...pageItems);
-    const total = page?.result?.totalCount ?? pageItems.length;
-    skip += PAGE_SIZE;
-    if (skip >= total || pageItems.length === 0) break;
+  if (r.RecursosUtilizados && r.RecursosUtilizados.length && r.RecursosUtilizados[0].Descricao) {
+    return r.RecursosUtilizados[0].Descricao;
   }
-  return items;
-}
-
-// busca o objeto completo de uma OS — usado só pra pegar o tipo de manutenção (ex.: "Lubrificação de
-// Mancal"), que o relatório de cumprimento de programação não traz. idOrdemServicoProgramacao do
-// relatório já É o id da própria OS (confirmado testando direto contra OrdemServico/Get).
-async function fetchOrdemServico(token: string, id: string) {
-  const url = `${MELVIN_BASE}/api/services/app/OrdemServico/Get?Id=${encodeURIComponent(id)}`;
-  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!resp.ok) return null;
-  const json = await resp.json();
-  return json?.result ?? null;
-}
-const OS_LOOKUP_CONCURRENCY = 6;
-async function fetchTiposEmLotes(token: string, ids: string[]) {
-  const byId = new Map<string, string>();
-  for (let i = 0; i < ids.length; i += OS_LOOKUP_CONCURRENCY) {
-    const batch = ids.slice(i, i + OS_LOOKUP_CONCURRENCY);
-    const results = await Promise.all(batch.map((id) => fetchOrdemServico(token, id).catch(() => null)));
-    batch.forEach((id, idx) => {
-      const tipo = results[idx]?.tipoManutencao?.descricao;
-      if (tipo) byId.set(id, tipo);
-    });
+  if (r.RecursosPlanejados && r.RecursosPlanejados.length && r.RecursosPlanejados[0].Descricao) {
+    return r.RecursosPlanejados[0].Descricao;
   }
-  return byId;
+  return "";
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
   try {
-    const username = Deno.env.get("MELVIN_USERNAME");
-    const password = Deno.env.get("MELVIN_PASSWORD");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!username || !password) throw new Error("MELVIN_USERNAME / MELVIN_PASSWORD não configurados nos secrets da função.");
     if (!supabaseUrl || !serviceRoleKey) throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY ausentes (deveriam existir automaticamente).");
-
-    const forceFull = new URL(req.url).searchParams.get("full") === "1";
     const sbHeaders = { "apikey": serviceRoleKey, "Authorization": `Bearer ${serviceRoleKey}` };
 
-    // histórico já salvo (se houver)
-    let existing: any = null;
-    const exResp = await fetch(`${supabaseUrl}/rest/v1/app_state?key=eq.${STORAGE_KEY}&select=data`, { headers: sbHeaders });
-    if (exResp.ok) {
-      const rows = await exResp.json();
-      existing = rows?.[0]?.data ?? null;
+    const url = `${INTEGRATION_URL}?codigoIntegracao=${CODIGO_INTEGRACAO}&dataInicio=${CYCLE_START}&dataFim=${CYCLE_END}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const bodyText = await resp.text().catch(() => "");
+      throw new Error(`Melvin respondeu ${resp.status} em PowerBI/GetDadosIntegracao: ${bodyText.slice(0, 300)}`);
     }
-    const hasHistory = !!existing && Array.isArray(existing.records) && !!existing.coverageStart && existing.coverageStart <= CYCLE_START;
-    const fullFetch = forceFull || !hasHistory;
+    const json = await resp.json();
+    if (json.success === false) throw new Error(`Melvin retornou success=false: ${JSON.stringify(json).slice(0, 300)}`);
+    const raw: any[] = json.result ?? [];
 
-    const end = new Date();
-    const refreshFrom = dIso(new Date(end.getTime() - REFRESH_DAYS * 86400000));
-    const startTime = fullFetch ? CYCLE_START : (refreshFrom > CYCLE_START ? refreshFrom : CYCLE_START);
-    // vai até o fim do ciclo, não só até hoje — uma OS pode ser programada com bastante
-    // antecedência (dataProgramacao numa semana futura), e se a janela parasse em "hoje" essa OS
-    // nunca seria buscada, ficando com "Programada no Melvin?" errado em outros painéis até o dia
-    // em que a data programada finalmente chegasse
-    const endTime = CYCLE_END;
-
-    const token = await authenticate(username, password);
-
-    // duas passadas (por dataProgramacao e por dataExecucao), mescladas por id — uma OS pode
-    // ter sido programada dentro da janela mas só executada fora dela, ou vice-versa
-    const [byProgramacao, byExecucao] = await Promise.all([
-      fetchWindow(token, "programacao", startTime, endTime),
-      fetchWindow(token, "execucao", startTime, endTime),
-    ]);
-    const rawById = new Map<string, any>();
-    for (const r of [...byProgramacao, ...byExecucao]) {
-      const id = r.idOrdemServicoProgramacao || r.idProgramacao || `cod-${r.codOrdem}`;
-      rawById.set(id, r);
-    }
-
-    // tipo de manutenção (ex.: "Lubrificação de Mancal") não vem no relatório de cumprimento —
-    // busca à parte em OrdemServico/Get, só pra quem ainda não tem isso guardado de uma sincronização
-    // anterior (o tipo nunca muda depois que a OS existe, não precisa reconsultar pra sempre)
-    const existingById = new Map<string, any>((existing?.records ?? []).map((r: any) => [r.id, r]));
-    const idsParaTipo: string[] = [];
-    rawById.forEach((r, id) => {
-      if (!r.idOrdemServicoProgramacao) return;
-      const prev = existingById.get(id);
-      if (!prev || !prev.tipoManutencao) idsParaTipo.push(r.idOrdemServicoProgramacao);
-    });
-    const tiposById = await fetchTiposEmLotes(token, Array.from(new Set(idsParaTipo)));
-
-    const fetched = Array.from(rawById.entries()).map(([id, r]) => {
-      const prev = existingById.get(id);
-      const tipoManutencao = (r.idOrdemServicoProgramacao ? tiposById.get(r.idOrdemServicoProgramacao) : null)
-        ?? (prev ? prev.tipoManutencao ?? null : null);
+    const records = raw.map((r) => {
+      const dataProgramacaoRaw = (r.DatasProgramacao && r.DatasProgramacao.length) ? r.DatasProgramacao[0] : null;
+      const conclusao = latestDataValidacao(r.Acoes);
       return {
-        id,
-        codOrdem: r.codOrdem ?? "",
-        tag: r.tag ?? "",
-        descricaoOs: r.descricaoOs ?? "",
-        descricaoEquipamento: r.descricaoEquipamento ?? "",
-        dataCriada: toDateOnlyIso(r.dataCriada),
-        dataProgramacao: toDateOnlyIso(r.dataProgramacao),
-        dataExclusao: toDateOnlyIso(r.dataExclusao),
-        dataExecucao: toDateTimeIso(r.dataExecucao),
-        dataEncerramento: toDateTimeIso(r.dataEncerramento),
-        executante: r.executante ?? "",
-        tipoManutencao,
+        codOrdem: r.Numero,
+        tag: r.TagAtivo || "",
+        descricaoOs: r.Descricao || "",
+        descricaoEquipamento: r.NomeAtivo || "",
+        dataCriada: dateOnly(r.DataAbertura),
+        dataProgramacao: dateOnly(dataProgramacaoRaw),
+        dataExclusao: r.Status === "Cancelada" ? dateOnly(r.DataAbertura) : null,
+        dataExecucao: conclusao,
+        dataEncerramento: conclusao,
+        executante: primeiroExecutante(r),
+        tipoManutencao: r.Tipo || "",
       };
-    });
+    }).filter((r) => (r.dataProgramacao && r.dataProgramacao >= CYCLE_START) || (r.dataExecucao && r.dataExecucao >= CYCLE_START) || (!r.dataProgramacao && !r.dataExecucao));
 
-    let records: any[];
-    if (fullFetch) {
-      records = fetched;
-    } else {
-      // mantém o histórico anterior à janela e troca só o que foi rebuscado (por id)
-      const fetchedIds = new Set(fetched.map((r) => r.id));
-      const kept = existing.records.filter((r: any) => !fetchedIds.has(r.id) && (r.dataProgramacao || "") < startTime && (r.dataExecucao || "") < startTime);
-      records = kept.concat(fetched);
-    }
-    // "AAAA-MM-DD" comparado como string funciona porque tem largura fixa
-    records = records.filter((r) => (r.dataProgramacao && r.dataProgramacao >= CYCLE_START) || (r.dataExecucao && r.dataExecucao >= CYCLE_START) || (!r.dataProgramacao && !r.dataExecucao));
-
-    const data = { sheetName: "melvin-api", records, coverageStart: CYCLE_START };
+    const data = { sheetName: "melvin-api-integracao", records, coverageStart: CYCLE_START };
 
     const upsertResp = await fetch(`${supabaseUrl}/rest/v1/app_state`, {
       method: "POST",
@@ -253,7 +149,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         key: STORAGE_KEY,
         data,
-        file_name: "melvin-api",
+        file_name: "melvin-integracao-powerbi",
         updated_at: new Date().toISOString(),
       }),
     });
@@ -265,17 +161,18 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         ok: true,
-        modo: fullFetch ? "completo (desde o início do ciclo)" : `incremental (últimos ${REFRESH_DAYS} dias)`,
-        janelaBuscada: `${startTime} a ${endTime}`,
-        totalProgramacao: byProgramacao.length,
-        totalExecucao: byExecucao.length,
+        fonte: "PowerBI/GetDadosIntegracao (API oficial Melvin)",
+        janelaBuscada: `${CYCLE_START} a ${CYCLE_END}`,
+        ordensRecebidas: raw.length,
         ordensNoHistorico: records.length,
-        tiposConsultados: idsParaTipo.length,
+        comDataProgramacao: records.filter((r) => r.dataProgramacao).length,
+        comDataExecucao: records.filter((r) => r.dataExecucao).length,
+        canceladas: records.filter((r) => r.dataExclusao).length,
       }),
       { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: String(e && (e as Error).message || e) }), {
+    return new Response(JSON.stringify({ ok: false, error: String((e as any)?.message || e) }), {
       status: 500,
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
