@@ -47,6 +47,23 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// setor "Manutenção de Equipamentos Móveis" não faz parte da gestão do PCM -- nenhuma ordem/solicitação
+// desse setor deve aparecer em nenhum painel. O campo Setor da API vem VAZIO pra esse setor específico
+// (confirmado comparando com a tela do Melvin, print da OS 619 -- bug/particularidade deles), então
+// o filtro confiável é pelo meio da TAG do ativo (ex.: "MTZ-MEM-PC12", onde "MEM" é o código desse
+// setor) -- o campo Setor entra só como reforço, caso um dia a API passe a preenchê-lo certo.
+function normalizarTexto(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
+}
+const SETOR_EXCLUIDO_NORMALIZADO = normalizarTexto("Manutenção de Equipamentos Moveis");
+function ehSetorExcluido(r: any): boolean {
+  const tag = r.TagAtivo || "";
+  const partes = tag.split("-");
+  if (partes.length >= 2 && partes[1] === "MEM") return true;
+  const setor = r.Setor || "";
+  return !!setor && normalizarTexto(setor).includes(SETOR_EXCLUIDO_NORMALIZADO);
+}
+
 function dateOnly(iso: string | null | undefined): string | null {
   if (!iso || typeof iso !== "string") return null;
   return iso.slice(0, 10);
@@ -73,7 +90,7 @@ Deno.serve(async (req: Request) => {
     }
     const json = await resp.json();
     if (json.success === false) throw new Error(`Melvin retornou success=false: ${JSON.stringify(json).slice(0, 300)}`);
-    const raw: any[] = (json.result ?? []).filter((r: any) => r.Solicitacoes && r.Solicitacoes.length);
+    const raw: any[] = (json.result ?? []).filter((r: any) => r.Solicitacoes && r.Solicitacoes.length && !ehSetorExcluido(r));
 
     const records: any[] = [];
     raw.forEach((r) => {
