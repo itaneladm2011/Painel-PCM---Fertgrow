@@ -187,6 +187,7 @@
   .sync-now-status.ok{color:var(--saldo-pos);}
   .sync-now-status.err{color:var(--saldo-neg);}
   .disp-fail-row:hover{background:var(--line2);}
+  .mapa-ativo-row:hover{background:var(--line2);}
   .status-line.ok{color:var(--saldo-pos);}
   .status-line.err{color:var(--saldo-neg);}
   #fileInput{display:none;}
@@ -558,6 +559,10 @@
         <button class="primary-nav-item" id="navSolicitacoes" type="button">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
           <span>Solicitações de Serviço</span>
+        </button>
+        <button class="primary-nav-item" id="navMapaAtivos" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6"/></svg>
+          <span>Mapa de Ativos</span>
         </button>
       </nav>
       <button class="theme-toggle" id="btnOpenAccount" type="button" style="margin-top:8px;">
@@ -1421,6 +1426,36 @@
       </div>
     </div>
 
+    <div id="panelMapaAtivos" style="display:none;">
+      <div class="panel empty-panel" id="mapaAtivosEmptyState">
+        <div class="empty-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6"/></svg>
+        </div>
+        <div class="panel-title" style="justify-content:center;">Mapa de Ativos</div>
+        <p class="empty-text">Assim que os dados de Programação, Preventivas ou Solicitações estiverem carregados, o mapa por ativo aparece aqui.</p>
+      </div>
+
+      <div id="mapaAtivosDashboard" style="display:none;">
+        <div class="panel" style="border-color:var(--status-warning);background:var(--cream);">
+          <div style="display:flex;gap:10px;align-items:flex-start;color:var(--text-strong);font-size:13px;line-height:1.5;">
+            <span style="font-size:16px;">⚠️</span>
+            <div><b>Visão parcial.</b> Mostra só ativos com alguma demanda em aberto (Ordem, Preventiva ou Solicitação já atendida) — ainda não cobre Solicitações pendentes, nem ativos sem nenhuma demanda recente (depende de um cadastro completo de ativos que a Melvin ainda não liberou).</div>
+          </div>
+        </div>
+        <div class="panel no-collapse">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6"/></svg>Mapa por ativo <span class="tag" id="mapaAtivosTag"></span></div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <input type="text" id="mapaAtivosFilterInput" placeholder="Filtrar por TAG, equipamento ou setor..." style="flex:1 1 220px;min-width:180px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:#FFFFFF;border:1px solid var(--panel-border);border-radius:7px;padding:8px 12px;">
+            <button type="button" class="btn ghost small" id="btnMapaAtivosRefresh">Atualizar visualização</button>
+          </div>
+        </div>
+
+        <div class="kpi-row" id="mapaAtivosKpiRow"></div>
+
+        <div class="panel no-collapse" id="mapaAtivosTreeContainer"></div>
+      </div>
+    </div>
+
       </div>
     </div>
     <nav class="mobile-tabbar" id="mobileTabbar">
@@ -1453,6 +1488,10 @@
       <button class="mobile-tab-item" id="navSolicitacoesM" type="button">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
         <span>Solicit.</span>
+      </button>
+      <button class="mobile-tab-item" id="navMapaAtivosM" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6"/></svg>
+        <span>Ativos</span>
       </button>
       <button class="mobile-tab-item" id="navPreventivasM" type="button">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="2.2" height="2.2"/><rect x="10" y="13" width="2.2" height="2.2"/><rect x="14" y="13" width="2.2" height="2.2"/></svg>
@@ -6460,6 +6499,213 @@ function renderPainelGeral() {
   }
 }
 
+/* ============ Mapa de Ativos \u2014 cruza Programa\u00e7\u00e3o + Preventivas + Solicita\u00e7\u00f5es por TAG de ativo,
+   sem nenhuma chamada nova ao Melvin (s\u00f3 reaproveita o que os 3 dom\u00ednios j\u00e1 sincronizam). Vis\u00e3o
+   PARCIAL por design: s\u00f3 mostra ativo com alguma demanda em aberto agora (n\u00e3o existe cadastro
+   completo de ativos dispon\u00edvel pra mostrar os "sem demanda" tamb\u00e9m), e Solicita\u00e7\u00f5es pendentes
+   (sem OS) continuam invis\u00edveis aqui pela mesma raz\u00e3o j\u00e1 conhecida do painel de Solicita\u00e7\u00f5es. ============ */
+function normalizarTagAtivo(s) { return (s || "").trim().toUpperCase(); }
+
+function computeMapaAtivos() {
+  const hoje = dOnly(new Date());
+  const byTag = new Map();
+  function getOrCreate(tagBruta, descricao, setor) {
+    const key = normalizarTagAtivo(tagBruta) || "SEM-TAG";
+    if (!byTag.has(key)) byTag.set(key, { tag: tagBruta || "Sem TAG", descricao: descricao || "", setor: setor || "", ordens: [], preventivas: [], solicitacoes: [] });
+    const item = byTag.get(key);
+    if (!item.descricao && descricao) item.descricao = descricao;
+    if (!item.setor && setor) item.setor = setor;
+    return item;
+  }
+
+  // Programa\u00e7\u00e3o: ordens ainda sem execu\u00e7\u00e3o e n\u00e3o canceladas (= demanda em aberto)
+  if (progData && progData.records) {
+    progData.records.forEach(r => {
+      if (!r.tag || r.dataExclusao || r.dataExecucao) return;
+      const item = getOrCreate(r.tag, r.descricaoEquipamento, r.setor);
+      const atrasada = !!(r.dataProgramacao && dOnly(r.dataProgramacao) < hoje);
+      item.ordens.push({ codOrdem: r.codOrdem, descricao: r.descricaoOs, tipo: r.tipoManutencao, dataProgramacao: r.dataProgramacao, atrasada });
+    });
+  }
+  // Preventivas: s\u00f3 ocorr\u00eancia real/confirmada (n\u00e3o estimativa estat\u00edstica) pendente ou atrasada
+  if (preventivasData && preventivasData.records) {
+    preventivasData.records.forEach(o => {
+      if (o.projetado || !o.dataExecucaoPrevista) return;
+      const estado = preventOcorrenciaEstado(o);
+      if (estado !== "atrasada" && estado !== "pendente") return;
+      const tagBruta = o.equipamentoTag || o.idEquipamento;
+      if (!tagBruta) return;
+      const item = getOrCreate(tagBruta, o.equipamentoDescricao, o.setor);
+      item.preventivas.push({ plano: o.descricaoFmp || o.tagFmp, dataExecucaoPrevista: o.dataExecucaoPrevista, atrasada: estado === "atrasada", codOrdem: o.codOrdem });
+    });
+  }
+  // Solicita\u00e7\u00f5es: s\u00f3 "atendida" (OS aberta, ainda n\u00e3o conclu\u00edda) -- \u00e9 o \u00fanico estado em aberto que
+  // d\u00e1 pra enxergar hoje; pendente (sem OS) continua fora de alcance, ver aviso no painel
+  if (solicitacoesData && solicitacoesData.records) {
+    solicitacoesData.records.forEach(r => {
+      if (!r.equipamento || solicEstado(r) !== "atendida") return;
+      const item = getOrCreate(r.equipamento, "", r.setor);
+      item.solicitacoes.push({ codigo: r.codigo, descricao: r.solicitacao, dataAbertura: r.dataAbertura, codigoOrdemServicoDestino: r.codigoOrdemServicoDestino });
+    });
+  }
+
+  const ativos = Array.from(byTag.values()).filter(a => a.ordens.length || a.preventivas.length || a.solicitacoes.length);
+  ativos.forEach(a => {
+    a.ordensAtrasadas = a.ordens.filter(o => o.atrasada).length;
+    a.preventivasAtrasadas = a.preventivas.filter(p => p.atrasada).length;
+    a.totalDemandas = a.ordens.length + a.preventivas.length + a.solicitacoes.length;
+    a.temAtraso = a.ordensAtrasadas > 0 || a.preventivasAtrasadas > 0;
+  });
+  return ativos.sort((a, b) => (b.temAtraso - a.temAtraso) || (b.totalDemandas - a.totalDemandas) || a.tag.localeCompare(b.tag));
+}
+
+function computeMapaAtivosPorSetor(ativos) {
+  const bySetor = new Map();
+  ativos.forEach(a => {
+    const setor = a.setor || "Sem setor";
+    if (!bySetor.has(setor)) bySetor.set(setor, []);
+    bySetor.get(setor).push(a);
+  });
+  return Array.from(bySetor.entries())
+    .map(([setor, lista]) => ({
+      setor,
+      ativos: lista.sort((a, b) => (b.temAtraso - a.temAtraso) || a.tag.localeCompare(b.tag)),
+      ordensAtrasadas: lista.reduce((s, a) => s + a.ordensAtrasadas, 0),
+      preventivasAtrasadas: lista.reduce((s, a) => s + a.preventivasAtrasadas, 0),
+    }))
+    .sort((a, b) => (b.ordensAtrasadas + b.preventivasAtrasadas) - (a.ordensAtrasadas + a.preventivasAtrasadas) || a.setor.localeCompare(b.setor));
+}
+
+let mapaAtivosAll = [];
+let mapaAtivosFilterText = "";
+
+function renderMapaAtivos() {
+  const hasAnyData = !!(progData || preventivasData || solicitacoesData);
+  document.getElementById("mapaAtivosEmptyState").style.display = hasAnyData ? "none" : "";
+  document.getElementById("mapaAtivosDashboard").style.display = hasAnyData ? "" : "none";
+  if (!hasAnyData) return;
+
+  mapaAtivosAll = computeMapaAtivos();
+  const totalOrdensAtrasadas = mapaAtivosAll.reduce((s, a) => s + a.ordensAtrasadas, 0);
+  const totalPreventivasAtrasadas = mapaAtivosAll.reduce((s, a) => s + a.preventivasAtrasadas, 0);
+  const totalSolicitacoes = mapaAtivosAll.reduce((s, a) => s + a.solicitacoes.length, 0);
+
+  document.getElementById("mapaAtivosTag").textContent = `${mapaAtivosAll.length} ativo(s) com demanda`;
+  document.getElementById("mapaAtivosKpiRow").innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Ativos com demanda</div>
+      <div class="kpi-value">${mapaAtivosAll.length}</div>
+      <div class="kpi-sub">com Ordem, Preventiva ou Solicita\u00e7\u00e3o em aberto</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Ordens atrasadas</div>
+      <div class="kpi-value">${totalOrdensAtrasadas}</div>
+      <div class="kpi-sub">programadas, sem execu\u00e7\u00e3o, prazo vencido</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Preventivas atrasadas</div>
+      <div class="kpi-value">${totalPreventivasAtrasadas}</div>
+      <div class="kpi-sub">ocorr\u00eancias vencidas sem OS encerrada</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Solicita\u00e7\u00f5es em andamento</div>
+      <div class="kpi-value">${totalSolicitacoes}</div>
+      <div class="kpi-sub">OS aberta, ainda n\u00e3o conclu\u00edda</div>
+    </div>
+  `;
+  renderMapaAtivosTree();
+}
+
+function mapaAtivoDetailHTML(a) {
+  const secoes = [];
+  if (a.ordens.length) secoes.push(`
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Ordens de Servi\u00e7o (${a.ordens.length})</div>
+      ${a.ordens.map(o => `
+        <div class="rca-action-row">
+          <div class="ar-status" style="background:${o.atrasada ? COLOR_SALDO_NEG : "#1F5FA8"}"></div>
+          <div class="ar-text">${esc(o.descricao || "\u2014")}<div class="ar-owner">OS ${esc(o.codOrdem)} \u00b7 ${esc(o.tipo || "sem tipo")}${o.dataProgramacao ? ` \u00b7 programada ${dBR(o.dataProgramacao)}` : " \u00b7 sem data programada"}${o.atrasada ? " \u00b7 ATRASADA" : ""}</div></div>
+        </div>`).join("")}
+    </div>`);
+  if (a.preventivas.length) secoes.push(`
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Preventivas (${a.preventivas.length})</div>
+      ${a.preventivas.map(p => `
+        <div class="rca-action-row">
+          <div class="ar-status" style="background:${p.atrasada ? COLOR_SALDO_NEG : "#1F5FA8"}"></div>
+          <div class="ar-text">${esc(p.plano || "\u2014")}<div class="ar-owner">prevista ${dBR(p.dataExecucaoPrevista)}${p.codOrdem ? ` \u00b7 OS ${esc(p.codOrdem)}` : ""}${p.atrasada ? " \u00b7 ATRASADA" : ""}</div></div>
+        </div>`).join("")}
+    </div>`);
+  if (a.solicitacoes.length) secoes.push(`
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Solicita\u00e7\u00f5es em andamento (${a.solicitacoes.length})</div>
+      ${a.solicitacoes.map(s => `
+        <div class="rca-action-row">
+          <div class="ar-status" style="background:#B08900"></div>
+          <div class="ar-text">${esc(s.descricao || "\u2014")}<div class="ar-owner">C\u00f3d. ${esc(s.codigo ?? "\u2014")} \u00b7 aberta ${dBR(s.dataAbertura)}${s.codigoOrdemServicoDestino ? ` \u00b7 OS ${esc(s.codigoOrdemServicoDestino)}` : ""}</div></div>
+        </div>`).join("")}
+    </div>`);
+  return `<div class="plano-update-box">${secoes.join("")}</div>`;
+}
+
+function toggleMapaAtivoDetail(row, key) {
+  const next = row.nextElementSibling;
+  if (next && next.classList.contains("mapa-ativo-detail")) { next.remove(); return; }
+  document.querySelectorAll(".mapa-ativo-detail").forEach(d => d.remove());
+  const a = mapaAtivosAll.find(x => normalizarTagAtivo(x.tag) === key);
+  if (!a) return;
+  const detail = document.createElement("div");
+  detail.className = "mapa-ativo-detail";
+  detail.style.cssText = "padding:8px 10px 16px 26px;";
+  detail.innerHTML = mapaAtivoDetailHTML(a);
+  row.after(detail);
+}
+
+function mapaAtivoRowHTML(a) {
+  const corStatus = a.temAtraso ? COLOR_SALDO_NEG : (a.totalDemandas ? "#1F5FA8" : COLOR_REALIZADO);
+  return `
+    <div class="mapa-ativo-row" data-key="${esc(normalizarTagAtivo(a.tag))}" style="cursor:pointer;padding:9px 10px;border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="width:8px;height:8px;border-radius:50%;background:${corStatus};flex:0 0 auto;"></div>
+      <div style="flex:1 1 220px;min-width:0;font-weight:700;font-size:13.5px;">${esc(a.tag)}${a.descricao ? ` <span style="font-weight:400;color:var(--muted);">\u2014 ${esc(a.descricao)}</span>` : ""}</div>
+      <div class="row-flex" style="gap:6px;flex-wrap:wrap;">
+        ${a.ordens.length ? `<span class="tag"${a.ordensAtrasadas ? ` style="color:${COLOR_SALDO_NEG};"` : ""}>${a.ordens.length} ordem(ns)${a.ordensAtrasadas ? ` \u00b7 ${a.ordensAtrasadas} atrasada(s)` : ""}</span>` : ""}
+        ${a.preventivas.length ? `<span class="tag"${a.preventivasAtrasadas ? ` style="color:${COLOR_SALDO_NEG};"` : ""}>${a.preventivas.length} preventiva(s)${a.preventivasAtrasadas ? ` \u00b7 ${a.preventivasAtrasadas} atrasada(s)` : ""}</span>` : ""}
+        ${a.solicitacoes.length ? `<span class="tag">${a.solicitacoes.length} solicita\u00e7\u00e3o(\u00f5es)</span>` : ""}
+      </div>
+    </div>`;
+}
+
+function renderMapaAtivosTree() {
+  const filtro = mapaAtivosFilterText.trim().toLowerCase();
+  const filtrados = !filtro ? mapaAtivosAll : mapaAtivosAll.filter(a =>
+    a.tag.toLowerCase().includes(filtro) || (a.descricao || "").toLowerCase().includes(filtro) || (a.setor || "").toLowerCase().includes(filtro));
+  const porSetor = computeMapaAtivosPorSetor(filtrados);
+  const container = document.getElementById("mapaAtivosTreeContainer");
+  if (!porSetor.length) {
+    container.innerHTML = `<div class="empty-text" style="text-align:center;padding:30px 0;">Nenhum ativo encontrado${filtro ? " para esse filtro" : " com demanda em aberto"}.</div>`;
+    return;
+  }
+  container.innerHTML = porSetor.map(grupo => `
+    <div style="margin-bottom:18px;">
+      <div class="row-flex" style="gap:10px;padding:8px 4px;border-bottom:1px solid var(--line);flex-wrap:wrap;">
+        <b style="font-size:14px;">${esc(grupo.setor)}</b>
+        <span class="tag">${grupo.ativos.length} ativo(s)</span>
+        ${grupo.ordensAtrasadas ? `<span class="tag" style="color:${COLOR_SALDO_NEG};">${grupo.ordensAtrasadas} ordem(ns) atrasada(s)</span>` : ""}
+        ${grupo.preventivasAtrasadas ? `<span class="tag" style="color:${COLOR_SALDO_NEG};">${grupo.preventivasAtrasadas} preventiva(s) atrasada(s)</span>` : ""}
+      </div>
+      ${grupo.ativos.map(a => mapaAtivoRowHTML(a)).join("")}
+    </div>`).join("");
+  container.querySelectorAll(".mapa-ativo-row").forEach(row => {
+    row.addEventListener("click", () => toggleMapaAtivoDetail(row, row.dataset.key));
+  });
+}
+
+document.getElementById("mapaAtivosFilterInput").addEventListener("input", (e) => {
+  mapaAtivosFilterText = e.target.value;
+  renderMapaAtivosTree();
+});
+document.getElementById("btnMapaAtivosRefresh").addEventListener("click", () => renderMapaAtivos());
+
 /* ============ navega\u00e7\u00e3o entre pain\u00e9is (Custos / Disponibilidade) ============ */
 let currentAppName = "custos";
 function switchApp(name) {
@@ -6473,6 +6719,7 @@ function switchApp(name) {
   document.getElementById("panelPlanoAcao").style.display = name === "planoacao" ? "" : "none";
   document.getElementById("panelSolicitacoes").style.display = name === "solicitacoes" ? "" : "none";
   document.getElementById("panelPreventivas").style.display = name === "preventivas" ? "" : "none";
+  document.getElementById("panelMapaAtivos").style.display = name === "mapaativos" ? "" : "none";
   document.getElementById("navGeral").classList.toggle("active", name === "geral");
   document.getElementById("navCustos").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidade").classList.toggle("active", name === "disponibilidade");
@@ -6481,6 +6728,7 @@ function switchApp(name) {
   document.getElementById("navPlanoAcao").classList.toggle("active", name === "planoacao");
   document.getElementById("navSolicitacoes").classList.toggle("active", name === "solicitacoes");
   document.getElementById("navPreventivas").classList.toggle("active", name === "preventivas");
+  document.getElementById("navMapaAtivos").classList.toggle("active", name === "mapaativos");
   document.getElementById("navGeralM").classList.toggle("active", name === "geral");
   document.getElementById("navCustosM").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidadeM").classList.toggle("active", name === "disponibilidade");
@@ -6489,6 +6737,7 @@ function switchApp(name) {
   document.getElementById("navPlanoAcaoM").classList.toggle("active", name === "planoacao");
   document.getElementById("navSolicitacoesM").classList.toggle("active", name === "solicitacoes");
   document.getElementById("navPreventivasM").classList.toggle("active", name === "preventivas");
+  document.getElementById("navMapaAtivosM").classList.toggle("active", name === "mapaativos");
   window.scrollTo(0, 0);
   document.getElementById("pageTitle").textContent = name === "geral"
     ? "Painel Geral — Gestão da Manutenção"
@@ -6504,11 +6753,14 @@ function switchApp(name) {
     ? "Solicitações de Serviço"
     : name === "preventivas"
     ? "Mapa de 52 Semanas — Preventivas"
+    : name === "mapaativos"
+    ? "Mapa de Ativos"
     : "Painel de acompanhamento OPEX - Ciclo 26/27";
   if (name === "analise") renderAnaliseFalhas();
   if (name === "planoacao") renderPlanoAcao();
   if (name === "solicitacoes" && solicitacoesData) renderSolicitacoes();
   if (name === "preventivas" && preventivasData) renderPreventivas();
+  if (name === "mapaativos") renderMapaAtivos();
   if (name === "geral") renderPainelGeral();
 }
 document.getElementById("navGeral").addEventListener("click", () => switchApp("geral"));
@@ -6520,6 +6772,7 @@ document.getElementById("navProgramacao").addEventListener("click", () => switch
 document.getElementById("navPlanoAcao").addEventListener("click", () => switchApp("planoacao"));
 document.getElementById("navSolicitacoes").addEventListener("click", () => switchApp("solicitacoes"));
 document.getElementById("navPreventivas").addEventListener("click", () => switchApp("preventivas"));
+document.getElementById("navMapaAtivos").addEventListener("click", () => switchApp("mapaativos"));
 document.getElementById("navCustosM").addEventListener("click", () => switchApp("custos"));
 document.getElementById("navDisponibilidadeM").addEventListener("click", () => switchApp("disponibilidade"));
 document.getElementById("navAnaliseFalhasM").addEventListener("click", () => switchApp("analise"));
@@ -6527,6 +6780,7 @@ document.getElementById("navProgramacaoM").addEventListener("click", () => switc
 document.getElementById("navPlanoAcaoM").addEventListener("click", () => switchApp("planoacao"));
 document.getElementById("navSolicitacoesM").addEventListener("click", () => switchApp("solicitacoes"));
 document.getElementById("navPreventivasM").addEventListener("click", () => switchApp("preventivas"));
+document.getElementById("navMapaAtivosM").addEventListener("click", () => switchApp("mapaativos"));
 document.getElementById("headerLogo").src = document.querySelector(".brand-logo-sb").src;
 
 const SUN_ICON = '<path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4l1.4-1.4M17 7l1.4-1.4"/><circle cx="12" cy="12" r="4"/>';
