@@ -123,7 +123,7 @@ function periodicidadeMediana(datasOrdenadasIso: string[]): number | null {
 
 function projetarOcorrenciasDoPar(
   idFmp: string, idEquipamento: string | null, tagFmp: string, descricaoFmp: string,
-  equipamentoTag: string, equipamentoDescricao: string,
+  equipamentoTag: string, equipamentoDescricao: string, setor: string,
   datasReaisOrdenadas: string[], periodDias: number, todayIso: string, horizonteFim: string,
 ) {
   if (!periodDias || periodDias <= 0 || !datasReaisOrdenadas.length) return [];
@@ -138,7 +138,7 @@ function projetarOcorrenciasDoPar(
     const fimDeSemana = diario && (cursor.getDay() === 0 || cursor.getDay() === 6);
     if (cursorIso >= todayIso && !fimDeSemana && !datasReaisSet.has(cursorIso)) {
       out.push({
-        idFmp, tagFmp, descricaoFmp, idEquipamento, equipamentoTag, equipamentoDescricao,
+        idFmp, tagFmp, descricaoFmp, idEquipamento, equipamentoTag, equipamentoDescricao, setor,
         dataExecucaoPrevista: cursorIso,
         idOrdemServico: null, codOrdem: null,
         osDataEncerramento: null, osDataExclusao: null,
@@ -178,6 +178,7 @@ Deno.serve(async (req: Request) => {
         idEquipamento: r.TagAtivo || null,
         equipamentoTag: r.TagAtivo || "",
         equipamentoDescricao: r.NomeAtivo || "",
+        setor: r.Setor || "", // usado pelo Mapa de Ativos (agrupamento Setor -> Ativo)
         dataExecucaoPrevista: dateOnly(dataProgramacaoRaw) || dateOnly(r.DataAbertura),
         idOrdemServico: r.Id,
         codOrdem: r.Numero,
@@ -188,11 +189,11 @@ Deno.serve(async (req: Request) => {
     }).filter((r) => r.dataExecucaoPrevista && r.dataExecucaoPrevista >= CYCLE_START);
 
     // agrupa por par (plano, equipamento) pra calcular a periodicidade real e projetar daí pra frente
-    const pares = new Map<string, { idFmp: string; idEquipamento: string | null; tagFmp: string; descricaoFmp: string; equipamentoTag: string; equipamentoDescricao: string; datas: string[] }>();
+    const pares = new Map<string, { idFmp: string; idEquipamento: string | null; tagFmp: string; descricaoFmp: string; equipamentoTag: string; equipamentoDescricao: string; setor: string; datas: string[] }>();
     reais.forEach((r) => {
       const chave = `${r.idFmp}|${r.idEquipamento || "semequip"}`;
       if (!pares.has(chave)) {
-        pares.set(chave, { idFmp: r.idFmp, idEquipamento: r.idEquipamento, tagFmp: r.tagFmp, descricaoFmp: r.descricaoFmp, equipamentoTag: r.equipamentoTag, equipamentoDescricao: r.equipamentoDescricao, datas: [] });
+        pares.set(chave, { idFmp: r.idFmp, idEquipamento: r.idEquipamento, tagFmp: r.tagFmp, descricaoFmp: r.descricaoFmp, equipamentoTag: r.equipamentoTag, equipamentoDescricao: r.equipamentoDescricao, setor: r.setor, datas: [] });
       }
       pares.get(chave)!.datas.push(r.dataExecucaoPrevista!);
     });
@@ -204,7 +205,7 @@ Deno.serve(async (req: Request) => {
       const periodDias = periodicidadeMediana(datasOrdenadas);
       if (!periodDias) return;
       projetadas.push(...projetarOcorrenciasDoPar(
-        p.idFmp, p.idEquipamento, p.tagFmp, p.descricaoFmp, p.equipamentoTag, p.equipamentoDescricao,
+        p.idFmp, p.idEquipamento, p.tagFmp, p.descricaoFmp, p.equipamentoTag, p.equipamentoDescricao, p.setor,
         datasOrdenadas, periodDias, todayIso, PROJECTION_HORIZON,
       ));
     });

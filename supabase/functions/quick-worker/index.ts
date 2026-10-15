@@ -180,6 +180,8 @@ Deno.serve(async (req: Request) => {
         dataEncerramento: latestDataValidacao(r.Acoes),
         executante: primeiroExecutante(r),
         tipoManutencao: r.Tipo || "",
+        setor: r.Setor || "", // usado pelo Mapa de Ativos (agrupamento Setor -> Ativo)
+        idOrdemServico: r.Id,
       };
     }).filter((r) => (r.dataProgramacao && r.dataProgramacao >= CYCLE_START) || (r.dataExecucao && r.dataExecucao >= CYCLE_START) || (!r.dataProgramacao && !r.dataExecucao));
 
