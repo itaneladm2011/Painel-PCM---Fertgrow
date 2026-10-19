@@ -5571,6 +5571,11 @@ function preventOcorrenciaEstado(o) {
   // obsoleto (fica "pendente", que a agrega\u00e7\u00e3o por c\u00e9lula j\u00e1 rebaixa pra "estimado"), n\u00e3o \u00e9 uma
   // pend\u00eancia real. Sem isso, uma estimativa "presa" entre sincroniza\u00e7\u00f5es virava atraso falso.
   if (o.projetado) return "pendente";
+  // ordem REAL (já tem OS aberta no Melvin), mas sem data de programação E sem periodicidade
+  // calculável pro par (ex.: 1ª ocorrência de um plano novo) — não existe nenhuma base pra estimar
+  // uma previsão de execução, então a data usada é só a de abertura (necessária pra posicionar a
+  // célula no mapa), não uma previsão real; nesse caso específico também não vira "atrasada" sozinha
+  if (o.semBaseParaPrevisao) return "pendente";
   const hoje = dOnly(new Date());
   if (dOnly(o.dataExecucaoPrevista) >= hoje) return "pendente";
   // a "data prevista" vem do histórico de geração da preventiva (Fmp/GetHistoricoGeracao) e fica
@@ -5744,7 +5749,13 @@ function renderPreventMapaChart(svgId, planos, weeks) {
         const w = weeks[wi];
         rect.addEventListener("mousemove", (evt) => showTooltip(evt, `${p.label} \u00b7 SEM ${weekNumberSunday(w.start)} (${dBR(w.start)} a ${dBR(w.end)})`, [
           { key: "Situa\u00e7\u00e3o", val: PREVENT_STATUS_LABEL[c.status], color: preventStatusColor(c.status), fmt: (v) => esc(v) },
-          ...c.ocorrencias.map(o => ({ key: `Previsto p/ ${dBR(o.dataExecucaoPrevista)}`, val: `${o.osDataExclusao ? `OS ${o.codOrdem} cancelada` : (o.osDataEncerramento ? `conclu\u00edda em ${dBR(o.osDataEncerramento)}` : (o.codOrdem ? `OS ${o.codOrdem} aberta, ainda n\u00e3o encerrada` : (o.planoAtivo === false ? "plano ainda n\u00e3o ativado no Melvin" : (o.projetado ? "estimativa pela periodicidade" : "sem OS gerada"))))}`, color: ink.axis, fmt: (v) => esc(v) })),
+          ...c.ocorrencias.map(o => {
+            const osTexto = o.osDataExclusao ? `OS ${o.codOrdem} cancelada`
+              : o.osDataEncerramento ? `conclu\u00edda em ${dBR(o.osDataEncerramento)}`
+              : o.codOrdem ? `OS ${o.codOrdem} aberta, ainda n\u00e3o encerrada${o.estimadoPorPeriodicidade ? " \u2014 sem data de programa\u00e7\u00e3o no Melvin ainda, previs\u00e3o estimada pela periodicidade do plano" : (o.semBaseParaPrevisao ? " \u2014 sem data de programa\u00e7\u00e3o e sem hist\u00f3rico suficiente pra estimar previs\u00e3o" : "")}`
+              : (o.planoAtivo === false ? "plano ainda n\u00e3o ativado no Melvin" : (o.projetado ? "estimativa pela periodicidade" : "sem OS gerada"));
+            return { key: `Previsto p/ ${dBR(o.dataExecucaoPrevista)}`, val: osTexto, color: ink.axis, fmt: (v) => esc(v) };
+          }),
         ]));
         rect.addEventListener("mouseleave", hideTooltip);
       }
@@ -5831,7 +5842,10 @@ let preventAtrasadasProgFilter = "todas";
 // relatório mesmo estando aberta e vencida. Por isso "programada no Melvin" aqui é só "o código da
 // OS aparece em algum registro de progData", não uma reclassificação nossa.
 function preventProgCodesSet() {
-  return new Set((progData && progData.records ? progData.records : []).map(r => String(r.codOrdem)));
+  // só conta como "programada no Melvin" quem de fato tem uma data de programação definida --
+  // antes contava qualquer OS presente no feed de Programação (inclusive as sem data nenhuma,
+  // como a 629), fazendo a coluna "Programada no Melvin?" mostrar "Sim" pra ordem sem programação
+  return new Set((progData && progData.records ? progData.records : []).filter(r => r.dataProgramacao).map(r => String(r.codOrdem)));
 }
 
 function renderPreventAtrasadasTable() {

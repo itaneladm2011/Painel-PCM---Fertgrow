@@ -169,7 +169,19 @@ Deno.serve(async (req: Request) => {
     if (json.success === false) throw new Error(`Melvin retornou success=false: ${JSON.stringify(json).slice(0, 300)}`);
     const raw: any[] = (json.result ?? []).filter((r: any) => !!r.FichaManutencaoPreventiva && !ehSetorExcluido(r));
 
-    const reais = raw.map((r) => {
+    // CRITÉRIO DE ATRASO (definido pelo PCM em 2026-10-19, após a OS 629 aparecer atrasada no mapa
+    // sem motivo -- aberta 11/10, sem data de programação ainda, mas com "Previsão Execução" no Melvin
+    // pra 05/11, ou seja dentro do prazo): 1º critério é a data de programação vencida; 2º critério,
+    // só quando NÃO existe data de programação, é a data de previsão de execução vencida. Conferido
+    // direto no payload cru da API: o campo "Previsão Execução" que aparece na tela do Melvin NÃO vem
+    // nesse endpoint de integração (o Melvin calcula esse valor internamente a partir da periodicidade
+    // cadastrada do plano -- mesma informação que o endpoint bloqueado Periodicidade/GetPeriodicidades
+    // dava e que não temos mais acesso). Por isso reproduzimos o 2º critério com a periodicidade que já
+    // calculamos por conta própria (mediana do intervalo entre ocorrências do mesmo par plano+equipamento,
+    // ver periodicidadeMediana acima): data de abertura da OS + essa periodicidade. Antes disso, o código
+    // usava a própria data de abertura como "previsão" (sem somar nada), o que fazia qualquer ordem sem
+    // programação aparecer atrasada no mesmo dia em que foi aberta -- esse era o bug.
+    const mapeados = raw.map((r) => {
       const dataProgramacaoRaw = (r.DatasProgramacao && r.DatasProgramacao.length) ? r.DatasProgramacao[0] : null;
       return {
         idFmp: r.FichaManutencaoPreventiva,
@@ -179,30 +191,67 @@ Deno.serve(async (req: Request) => {
         equipamentoTag: r.TagAtivo || "",
         equipamentoDescricao: r.NomeAtivo || "",
         setor: r.Setor || "", // usado pelo Mapa de Ativos (agrupamento Setor -> Ativo)
-        dataExecucaoPrevista: dateOnly(dataProgramacaoRaw) || dateOnly(r.DataAbertura),
+        dataProgramacao: dateOnly(dataProgramacaoRaw),
+        dataAbertura: dateOnly(r.DataAbertura),
         idOrdemServico: r.Id,
         codOrdem: r.Numero,
         osDataEncerramento: latestDataValidacao(r.Acoes),
         osDataExclusao: r.Status === "Cancelada" ? dateOnly(r.DataAbertura) : null,
-        projetado: false,
       };
-    }).filter((r) => r.dataExecucaoPrevista && r.dataExecucaoPrevista >= CYCLE_START);
+    }).filter((r) => (r.dataProgramacao || r.dataAbertura) && (r.dataProgramacao || r.dataAbertura)! >= CYCLE_START);
 
-    // agrupa por par (plano, equipamento) pra calcular a periodicidade real e projetar daí pra frente
+    // agrupa por par (plano, equipamento) pra calcular a periodicidade real -- a âncora de cada
+    // ocorrência é a data de programação quando existe, senão a data de abertura (mesmo critério de
+    // sempre); precisa ser calculada ANTES de montar `reais` porque o 2º critério de atraso depende dela
     const pares = new Map<string, { idFmp: string; idEquipamento: string | null; tagFmp: string; descricaoFmp: string; equipamentoTag: string; equipamentoDescricao: string; setor: string; datas: string[] }>();
-    reais.forEach((r) => {
+    mapeados.forEach((r) => {
       const chave = `${r.idFmp}|${r.idEquipamento || "semequip"}`;
       if (!pares.has(chave)) {
         pares.set(chave, { idFmp: r.idFmp, idEquipamento: r.idEquipamento, tagFmp: r.tagFmp, descricaoFmp: r.descricaoFmp, equipamentoTag: r.equipamentoTag, equipamentoDescricao: r.equipamentoDescricao, setor: r.setor, datas: [] });
       }
-      pares.get(chave)!.datas.push(r.dataExecucaoPrevista!);
+      pares.get(chave)!.datas.push((r.dataProgramacao || r.dataAbertura)!);
     });
+    const periodPorPar = new Map<string, number | null>();
+    pares.forEach((p, chave) => {
+      const datasOrdenadas = Array.from(new Set(p.datas)).sort();
+      periodPorPar.set(chave, periodicidadeMediana(datasOrdenadas));
+    });
+
+    const reais = mapeados.map((r) => {
+      const chave = `${r.idFmp}|${r.idEquipamento || "semequip"}`;
+      const periodDias = periodPorPar.get(chave) || null;
+      let dataExecucaoPrevista: string | null;
+      let estimadoPorPeriodicidade = false;
+      let semBaseParaPrevisao = false;
+      if (r.dataProgramacao) {
+        dataExecucaoPrevista = r.dataProgramacao; // 1º critério: data de programação do Melvin
+      } else if (periodDias && r.dataAbertura) {
+        dataExecucaoPrevista = addDiasIso(r.dataAbertura, periodDias); // 2º critério: previsão calculada pela periodicidade
+        estimadoPorPeriodicidade = true;
+      } else {
+        dataExecucaoPrevista = r.dataAbertura; // sem programação e sem periodicidade calculável (ex.: plano novo, 1ª ocorrência) -- último recurso só pra conseguir posicionar no mapa
+        semBaseParaPrevisao = !!r.dataAbertura;
+      }
+      return {
+        idFmp: r.idFmp, tagFmp: r.tagFmp, descricaoFmp: r.descricaoFmp,
+        idEquipamento: r.idEquipamento, equipamentoTag: r.equipamentoTag, equipamentoDescricao: r.equipamentoDescricao,
+        setor: r.setor,
+        dataExecucaoPrevista,
+        idOrdemServico: r.idOrdemServico,
+        codOrdem: r.codOrdem,
+        osDataEncerramento: r.osDataEncerramento,
+        osDataExclusao: r.osDataExclusao,
+        estimadoPorPeriodicidade,
+        semBaseParaPrevisao,
+        projetado: false,
+      };
+    }).filter((r) => r.dataExecucaoPrevista && r.dataExecucaoPrevista >= CYCLE_START);
 
     const todayIso = hojeIso();
     const projetadas: any[] = [];
-    pares.forEach((p) => {
+    pares.forEach((p, chave) => {
       const datasOrdenadas = Array.from(new Set(p.datas)).sort();
-      const periodDias = periodicidadeMediana(datasOrdenadas);
+      const periodDias = periodPorPar.get(chave);
       if (!periodDias) return;
       projetadas.push(...projetarOcorrenciasDoPar(
         p.idFmp, p.idEquipamento, p.tagFmp, p.descricaoFmp, p.equipamentoTag, p.equipamentoDescricao, p.setor,
