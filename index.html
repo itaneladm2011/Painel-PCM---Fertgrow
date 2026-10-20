@@ -697,6 +697,11 @@
     </div>
 
     <div class="panel">
+      <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>Tendência de fechamento do ciclo <span class="tag" id="trendForecastTag"></span></div>
+      <div id="trendForecastBody"></div>
+    </div>
+
+    <div class="panel">
       <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>Evolução no ciclo <span class="tag" id="groupShortTag"></span></div>
       <div class="chart-wrap"><svg id="trendChart" width="100%" viewBox="0 0 900 300" preserveAspectRatio="xMidYMid meet"></svg></div>
       <div class="legend">
@@ -2027,6 +2032,70 @@ function renderAlerts(scopeGroup) {
   });
 }
 
+/* ============ Acumulado até o mês corrente + tendência de fechamento do ciclo ============ */
+const MESES_ABREV_CUSTOS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+// identifica, dentro dos 12 meses do ciclo, qual é o "mês corrente" pra fins de acumulado/tendência.
+// usa a data real de hoje (não "último mês com realizado"), porque um mês em andamento pode
+// legitimamente ter realizado=0 até o momento e ainda assim já contar como "mês corrente"
+function custosMesAtualIdx(months) {
+  if (!months || !months.length) return 0;
+  const hoje = new Date();
+  const labelHoje = `${MESES_ABREV_CUSTOS[hoje.getMonth()]}/${hoje.getFullYear()}`;
+  const idxExato = months.findIndex(m => m.label === labelHoje);
+  if (idxExato >= 0) return idxExato;
+  // mês atual fora da janela coberta pela planilha (ciclo ainda não começou, ou já terminou) --
+  // usa o último mês com execução lançada como proxy de "onde estamos agora"
+  let last = -1;
+  months.forEach((m, i) => { if (m.realizado > 0) last = i; });
+  return last >= 0 ? last : 0;
+}
+// média do que já foi executado nos meses decorridos, projetada pros meses restantes do ciclo --
+// resposta direta ao pedido do usuário: "vamos ficar dentro do orçado geral ou fora, de quanto?"
+function custosTendenciaCiclo(months, orcadoCiclo) {
+  const idxAtual = custosMesAtualIdx(months);
+  const mesesAteAgora = months.slice(0, idxAtual + 1);
+  const ytdOrcado = mesesAteAgora.reduce((s, m) => s + m.orcado, 0);
+  const ytdRealizado = mesesAteAgora.reduce((s, m) => s + m.realizado, 0);
+  const qtdElapsed = mesesAteAgora.length;
+  const mediaMensal = qtdElapsed > 0 ? ytdRealizado / qtdElapsed : 0;
+  const mesesRestantes = Math.max(0, months.length - qtdElapsed);
+  const projRestante = mediaMensal * mesesRestantes;
+  const projTotalCiclo = ytdRealizado + projRestante;
+  const desvioProjetado = projTotalCiclo - orcadoCiclo;
+  return {
+    idxAtual, mesLabel: months[idxAtual].label,
+    ytdOrcado, ytdRealizado, aderYtd: ytdOrcado ? (ytdRealizado / ytdOrcado) * 100 : 0,
+    qtdElapsed, mediaMensal, mesesRestantes, projRestante, projTotalCiclo, orcadoCiclo, desvioProjetado,
+  };
+}
+function renderTendenciaCiclo(t) {
+  const estourou = t.desvioProjetado > 0.5;
+  const economizou = t.desvioProjetado < -0.5;
+  const corTendencia = estourou ? COLOR_SALDO_NEG : (economizou ? COLOR_SALDO_POS : COLOR_ORCADO);
+  const labelTendencia = estourou ? "Estouro projetado" : (economizou ? "Economia projetada" : "Dentro do orçado");
+  const pctDesvio = t.orcadoCiclo ? (t.desvioProjetado / t.orcadoCiclo) * 100 : 0;
+  document.getElementById("trendForecastTag").textContent = `base: ${t.qtdElapsed} mês(es) executado(s) até ${t.mesLabel}`;
+  document.getElementById("trendForecastBody").innerHTML = `
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_REALIZADO}">Média mensal executada</div>
+        <div class="kpi-value">${fmtBRL(t.mediaMensal)}</div>
+        <div class="kpi-sub">${fmtBRL(t.ytdRealizado)} em ${t.qtdElapsed} mês(es) decorrido(s)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Projeção de fechamento do ciclo</div>
+        <div class="kpi-value">${fmtBRL(t.projTotalCiclo)}</div>
+        <div class="kpi-sub">${t.mesesRestantes} mês(es) restante(s) simulado(s) pela média · orçado do ciclo: ${fmtBRL(t.orcadoCiclo)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${corTendencia}">Tendência: ${labelTendencia}</div>
+        <div class="kpi-value" style="color:${corTendencia}">${estourou || economizou ? fmtBRL(Math.abs(t.desvioProjetado)) : fmtBRL(0)}</div>
+        <div class="kpi-sub">${estourou ? `~${fmtPct(Math.abs(pctDesvio))} acima do orçado do ciclo, se mantida a média atual` : (economizou ? `~${fmtPct(Math.abs(pctDesvio))} abaixo do orçado do ciclo, se mantida a média atual` : "projeção próxima do orçado do ciclo")}</div>
+      </div>
+    </div>
+  `;
+}
+
 /* ============ Render principal ============ */
 function render() {
   const ds = getCurrentDataset();
@@ -2035,6 +2104,7 @@ function render() {
   const totalCiclo = ds.total.ciclo;
   const aderCiclo = totalCiclo.orcado ? (totalCiclo.realizado/totalCiclo.orcado)*100 : 0;
   const aderMes = currentMonth.orcado ? (currentMonth.realizado/currentMonth.orcado)*100 : 0;
+  const tendencia = custosTendenciaCiclo(months, totalCiclo.orcado);
 
   // group tabs
   const views = getViews();
@@ -2138,7 +2208,9 @@ function render() {
   const gaugeRow = document.getElementById("gaugeRow");
   gaugeRow.innerHTML = "";
   gaugeRow.appendChild(buildGauge(aderMes, currentMonth.label, `${fmtBRL(currentMonth.realizado)} / ${fmtBRL(currentMonth.orcado)}`));
+  gaugeRow.appendChild(buildGauge(tendencia.aderYtd, `Acumulado até ${tendencia.mesLabel}`, `${fmtBRL(tendencia.ytdRealizado)} / ${fmtBRL(tendencia.ytdOrcado)}`));
   gaugeRow.appendChild(buildGauge(aderCiclo, "Ciclo 26/27", `${fmtBRL(totalCiclo.realizado)} / ${fmtBRL(totalCiclo.orcado)}`));
+  renderTendenciaCiclo(tendencia);
 
   // trend chart
   const trendData = months.map(m=>({label:m.label, orcado:m.orcado, realizado:m.realizado, saldo:m.saldo}));
