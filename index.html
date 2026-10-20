@@ -40,21 +40,12 @@
     padding:0;
   }
 
-  .app-shell{min-height:100vh;}
-  .sidebar-hover-zone{position:fixed;top:0;left:0;width:14px;height:100vh;z-index:200;}
-  .sidebar-hover-zone::before{content:"";position:absolute;top:0;left:0;width:4px;height:100%;background:var(--realizado);opacity:.3;}
-  .primary-sidebar{width:230px;background:var(--realizado);border-right:1px solid var(--panel-border);
+  .app-shell{min-height:100vh;display:flex;}
+  .sidebar-hover-zone{display:contents;}
+  .primary-sidebar{width:230px;flex:0 0 230px;background:var(--realizado);border-right:1px solid var(--panel-border);
     padding:22px 16px;box-sizing:border-box;
     display:flex;flex-direction:column;gap:26px;
-    position:fixed;top:0;left:0;height:100vh;overflow-y:auto;z-index:201;
-    transform:translateX(-100%);transition:transform .18s ease;box-shadow:6px 0 24px rgba(0,0,0,.14);}
-  .sidebar-hover-zone:hover .primary-sidebar,
-  .primary-sidebar:hover,
-  .primary-sidebar:focus-within{transform:translateX(0);}
-  @media (hover:none), (max-width:900px){
-    .sidebar-hover-zone{position:static;width:auto;height:auto;z-index:auto;}
-    .sidebar-hover-zone::before{display:none;}
-  }
+    position:sticky;top:0;height:100vh;overflow-y:auto;z-index:50;}
   .sidebar-brand{display:flex;flex-direction:column;gap:4px;padding:0 6px;}
   .brand-logo-sb{height:30px;width:auto;display:block;background:#fff;padding:5px 9px;border-radius:8px;box-sizing:content-box;}
   .sidebar-subtitle{font-family:'Inter',sans-serif;font-size:12px;color:rgba(255,255,255,.68);font-weight:500;}
@@ -116,7 +107,7 @@
   .cloud-sync-status.err{color:var(--saldo-neg);}
 
   .app-content{flex:1;min-width:0;}
-  .content-inner{max-width:1180px;margin:0 auto;padding:28px 28px 60px;}
+  .content-inner{padding:28px 28px 60px;}
 
   .header{margin-bottom:22px;padding:20px 24px;border-radius:14px;background:var(--realizado);border-bottom:3px solid var(--lime);display:flex;align-items:center;justify-content:space-between;gap:16px;}
   .header-logo{height:34px;width:auto;display:block;flex-shrink:0;background:#fff;padding:6px 10px;border-radius:8px;box-sizing:content-box;}
@@ -370,6 +361,10 @@
 
   .content-grid{display:grid;grid-template-columns:2.2fr 1fr;gap:18px;margin-bottom:18px;}
   @media (max-width:980px){.content-grid{grid-template-columns:1fr;}}
+  /* consolidado (todas as contas): o gráfico de barras fica mais cheio (1 barra por grupo) e a
+     coluna estreita da Aderência ao lado espreme os gauges num canto -- nessa visão especificamente,
+     desce ela pra baixo do gráfico, em linha, aproveitando a largura toda */
+  .content-grid.stack-aderencia{grid-template-columns:1fr;}
 
   .gauge-row{display:flex;align-items:center;justify-content:space-around;gap:12px;padding:6px 0 2px;flex-wrap:wrap;}
   .gauge-block{display:flex;flex-direction:column;align-items:center;gap:2px;}
@@ -613,7 +608,7 @@
       <div class="alert-list" id="alertList"></div>
     </div>
 
-    <div class="content-grid">
+    <div class="content-grid" id="custosContentGrid">
       <div class="panel">
         <div class="panel-title" id="barChartTitle">Orçado × Realizado <span class="tag" id="chartMonthTag"></span></div>
         <div class="chart-wrap"><svg id="barChart" width="100%" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid meet"></svg></div>
@@ -2036,6 +2031,7 @@ function render() {
 
   // group tabs
   const views = getViews();
+  document.getElementById("custosContentGrid").classList.toggle("stack-aderencia", views[viewIdx].type === "consolidado");
   const groupTabs = document.getElementById("groupTabs");
   groupTabs.innerHTML = "";
   views.forEach((v,i)=>{
