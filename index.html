@@ -67,13 +67,9 @@
   :root[data-theme="dark"] .subtitle{color:#A9A392;}
   :root[data-theme="dark"] .eyebrow{color:#7FDB9F;}
   :root[data-theme="dark"] footer{color:#7A7566;}
-  :root[data-theme="dark"] .group-tab{color:#A9A392;}
-  :root[data-theme="dark"] .group-tab:hover{background:#26241A;color:#EFEBE0;}
-  :root[data-theme="dark"] .group-tab.active{background:#1F3327;color:#6FCB8E;}
-  :root[data-theme="dark"] .group-tab .code-tag{color:#847F70;}
-  :root[data-theme="dark"] .group-tab.consolidado{color:#A7C97D;}
-  :root[data-theme="dark"] .group-tab.consolidado:hover{background:#293620;}
-  :root[data-theme="dark"] .group-tab.consolidado.active{background:#293620;color:#C3E39A;}
+  /* .group-tab agora é um botão sólido (var(--realizado)/var(--consolidado) + texto branco, igual
+     o cabeçalho) que já funciona em claro e escuro sozinho via variável de cor -- não precisa mais
+     de um conjunto de cores próprio pro tema escuro aqui. */
 
   .login-gate{position:fixed;inset:0;background:var(--realizado);display:flex;align-items:center;justify-content:center;z-index:500;padding:20px;box-sizing:border-box;}
   .login-card{background:#FFFFFF;border-radius:16px;padding:32px 30px;width:100%;max-width:340px;box-sizing:border-box;
@@ -209,18 +205,18 @@
   }
   .main-content{min-width:0;}
 
-  .group-tabs{display:flex;flex-direction:column;gap:2px;position:sticky;top:20px;}
+  .group-tabs{display:flex;flex-direction:column;gap:6px;position:sticky;top:20px;}
   @media (max-width:860px){.group-tabs{position:static;flex-direction:row;flex-wrap:wrap;gap:8px;}}
-  .group-tab{background:transparent;border:1px solid transparent;border-left:3px solid transparent;color:var(--muted);padding:10px 12px 10px 13px;border-radius:6px;width:100%;
-    font-size:11.5px;font-weight:600;cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.02em;max-width:230px;text-align:left;line-height:1.35;box-sizing:border-box;}
-  @media (max-width:860px){.group-tab{width:auto;border-left:1px solid var(--panel-border);border-radius:8px;background:#FFFFFF;}}
-  .group-tab:hover{background:#EFEEE9;color:var(--text);}
-  .group-tab.active{background:#E6EFE9;border-left-color:var(--realizado);color:var(--realizado);font-weight:700;}
-  .group-tab.consolidado{color:var(--consolidado);margin-top:10px;padding-top:14px;border-top:1px solid var(--panel-border);}
+  .group-tab{background:var(--realizado);border:1px solid transparent;border-left:3px solid transparent;color:#fff;padding:10px 12px 10px 13px;border-radius:6px;width:100%;
+    font-size:11.5px;font-weight:600;cursor:pointer;transition:box-shadow .15s ease,border-color .15s ease;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.02em;max-width:230px;text-align:left;line-height:1.35;box-sizing:border-box;}
+  @media (max-width:860px){.group-tab{width:auto;border-left:1px solid transparent;border-radius:8px;}}
+  .group-tab:hover{box-shadow:inset 0 0 0 999px rgba(255,255,255,.1);}
+  .group-tab.active{box-shadow:inset 0 0 0 999px rgba(255,255,255,.16);border-left-color:var(--lime);font-weight:700;}
+  .group-tab.consolidado{background:var(--consolidado);margin-top:10px;padding-top:14px;border-top:1px solid rgba(255,255,255,.25);}
   @media (max-width:860px){.group-tab.consolidado{margin-top:0;padding-top:10px;border-top:1px solid var(--panel-border);}}
-  .group-tab.consolidado:hover{background:#F1F6E6;}
-  .group-tab.consolidado.active{background:#F1F6E6;border-left-color:var(--consolidado);color:var(--consolidado);}
-  .group-tab .code-tag{display:block;font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:9.5px;color:var(--muted3);margin-top:3px;font-weight:500;letter-spacing:.01em;}
+  .group-tab.consolidado:hover{box-shadow:inset 0 0 0 999px rgba(255,255,255,.1);}
+  .group-tab.consolidado.active{box-shadow:inset 0 0 0 999px rgba(255,255,255,.16);border-left-color:var(--lime);}
+  .group-tab .code-tag{display:block;font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:9.5px;color:rgba(255,255,255,.72);margin-top:3px;font-weight:500;letter-spacing:.01em;}
 
   .panel{background:var(--panel);border:1px solid var(--panel-border);border-top:3px solid var(--realizado);border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
   .panel-title{font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-strong);margin:0 0 14px 0;display:flex;align-items:center;gap:8px;}
