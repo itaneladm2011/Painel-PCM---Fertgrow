@@ -1486,6 +1486,13 @@ function chartInk() {
         realizado: COLOR_REALIZADO, orcado: COLOR_ORCADO, saldoNeg: COLOR_SALDO_NEG, tratado: COLOR_TRATADO };
 }
 
+// conta/grupo sem orçado e sem realizado no período em exibição = sem movimento nesse recorte
+// específico (ex.: fornecedor desmobilizado, substituído por outro a partir de um certo mês) --
+// some da tabela/gráfico desse mês em diante automaticamente, sem precisar editar a planilha nem
+// o código: basta a planilha trazer 0/0 pros meses em que não há mais nada ali. Não apaga nada do
+// histórico -- qualquer mês (ou o Ciclo Total) em que a conta teve valor real continua aparecendo
+// normalmente.
+function contaTemMovimento(m) { return !!(m.orcado || m.realizado); }
 function statusOf(orcado, realizado, saldo) {
   if (orcado === 0 && realizado > 0) return { key: "estouro", label: "Sem orçamento", color: COLOR_SALDO_NEG };
   if (saldo < 0) return { key: "estouro", label: "Estourado", color: COLOR_SALDO_NEG };
@@ -2103,14 +2110,14 @@ function render() {
   const itemsForView = ds.items.map((it, idx) => {
     const m = view==="mensal" ? it.months[monthIdx] : it.ciclo;
     return { name: it.name, fullName: it.name, orcado: m.orcado, realizado: m.realizado, saldo: m.saldo, accounts: isConsolidadoView ? DATA.groups[idx].accounts : null };
-  });
+  }).filter(contaTemMovimento);
 
   // gr\u00e1fico de barras acompanha o toggle M\u00eas selecionado / Ciclo total
   const itemsForChart = ds.items.map(it => {
     const m = view==="mensal" ? it.months[monthIdx] : it.ciclo;
     const shortName = it.name.length > 13 ? it.name.slice(0,12)+"\u2026" : it.name;
     return { name: shortName, fullName: it.name, orcado: m.orcado, realizado: m.realizado, saldo: m.saldo };
-  });
+  }).filter(contaTemMovimento);
   if (ds.items.length > 1) {
     const totalM = view==="mensal" ? currentMonth : totalCiclo;
     itemsForChart.push({ name: "TOTAL", fullName: `Total (soma das ${ds.itemLabel === "conta" ? "contas" : "grupos"})`, orcado: totalM.orcado, realizado: totalM.realizado, saldo: totalM.saldo, isTotal: true });
@@ -2183,7 +2190,8 @@ function toggleCustosGrupoDetailRow(tr, it) {
   const next = tr.nextElementSibling;
   if (next && next.classList.contains("custos-conta-detail-row")) { next.remove(); return; }
   document.querySelectorAll("#tableBody .custos-conta-detail-row").forEach(r => r.remove()); // um aberto por vez
-  const linhas = it.accounts.map(a => {
+  const contasComMovimento = it.accounts.filter(a => contaTemMovimento(view === "mensal" ? a.months[monthIdx] : a.ciclo));
+  const linhas = contasComMovimento.map(a => {
     const m = view === "mensal" ? a.months[monthIdx] : a.ciclo;
     const ader = m.orcado ? (m.realizado / m.orcado) * 100 : 0;
     const st = statusOf(m.orcado, m.realizado, m.saldo);
@@ -2193,13 +2201,13 @@ function toggleCustosGrupoDetailRow(tr, it) {
         <span class="a-detail">Orçado ${fmtBRL(m.orcado)} · Realizado ${fmtBRL(m.realizado)} · Saldo ${fmtBRL(m.saldo)} · Aderência ${fmtPct(ader)}</span>
         <span class="a-badge" style="background:${st.color}22;color:${st.color}">${esc(st.label)}</span>
       </div>`;
-  }).join("") || `<div class="a-detail">Nenhuma conta encontrada neste grupo.</div>`;
+  }).join("") || `<div class="a-detail">Nenhuma conta com orçamento ou execução neste período.</div>`;
   const row = document.createElement("tr");
   row.className = "custos-conta-detail-row";
   row.innerHTML = `
     <td colspan="6">
       <div class="plano-update-box">
-        <div class="plano-update-context"><b>${esc(it.name)}</b> — detalhamento por conta (${it.accounts.length})</div>
+        <div class="plano-update-context"><b>${esc(it.name)}</b> — detalhamento por conta (${contasComMovimento.length})</div>
         ${linhas}
       </div>
     </td>`;
