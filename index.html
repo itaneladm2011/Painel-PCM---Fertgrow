@@ -177,8 +177,6 @@
   .status-line.err{color:var(--saldo-neg);}
   #fileInput{display:none;}
 
-  .layout{display:grid;grid-template-columns:222px 1fr;gap:24px;align-items:start;}
-  @media (max-width:860px){.layout{grid-template-columns:1fr;}}
   @media (hover:none), (max-width:900px){
     .app-shell{display:flex;flex-direction:column;}
     .sidebar-hover-zone{display:none;}
@@ -205,15 +203,12 @@
   }
   .main-content{min-width:0;}
 
-  .group-tabs{display:flex;flex-direction:column;gap:6px;position:sticky;top:20px;}
-  @media (max-width:860px){.group-tabs{position:static;flex-direction:row;flex-wrap:wrap;gap:8px;}}
-  .group-tab{background:var(--realizado);border:1px solid transparent;border-left:3px solid transparent;color:#fff;padding:10px 12px 10px 13px;border-radius:6px;width:100%;
-    font-size:11.5px;font-weight:600;cursor:pointer;transition:box-shadow .15s ease,border-color .15s ease;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.02em;max-width:230px;text-align:left;line-height:1.35;box-sizing:border-box;}
-  @media (max-width:860px){.group-tab{width:auto;border-left:1px solid transparent;border-radius:8px;}}
+  .group-tabs{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;margin-bottom:18px;}
+  .group-tab{background:var(--realizado);border:1px solid transparent;border-left:3px solid transparent;color:#fff;padding:10px 12px 10px 13px;border-radius:6px;
+    font-size:11.5px;font-weight:600;cursor:pointer;transition:box-shadow .15s ease,border-color .15s ease;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.02em;flex:0 1 auto;width:auto;min-width:150px;max-width:230px;text-align:left;line-height:1.35;box-sizing:border-box;}
   .group-tab:hover{box-shadow:inset 0 0 0 999px rgba(255,255,255,.1);}
   .group-tab.active{box-shadow:inset 0 0 0 999px rgba(255,255,255,.16);border-left-color:var(--lime);font-weight:700;}
-  .group-tab.consolidado{background:var(--consolidado);margin-top:10px;padding-top:14px;border-top:1px solid rgba(255,255,255,.25);}
-  @media (max-width:860px){.group-tab.consolidado{margin-top:0;padding-top:10px;border-top:1px solid var(--panel-border);}}
+  .group-tab.consolidado{background:var(--consolidado);}
   .group-tab.consolidado:hover{box-shadow:inset 0 0 0 999px rgba(255,255,255,.1);}
   .group-tab.consolidado.active{box-shadow:inset 0 0 0 999px rgba(255,255,255,.16);border-left-color:var(--lime);}
   .group-tab .code-tag{display:block;font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:9.5px;color:rgba(255,255,255,.72);margin-top:3px;font-weight:500;letter-spacing:.01em;}
@@ -570,9 +565,6 @@
     </div>
 
     <div id="panelCustos">
-    <div class="layout">
-      <aside class="group-tabs" id="groupTabs"></aside>
-
       <main class="main-content">
 
     <a class="external-link-banner" href="https://fertgrowhub.fertgrow.com.br" target="_blank" rel="noopener noreferrer">
@@ -580,6 +572,8 @@
       <span>Análise completa de custos (Financeiro/Controladoria): abrir no <b>FertgrowHub</b> → FertStrategy</span>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;margin-left:auto;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
     </a>
+
+    <aside class="group-tabs" id="groupTabs"></aside>
 
     <div class="panel no-collapse">
       <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Trilha do ciclo <span class="tag">12 meses</span></div>
@@ -663,7 +657,6 @@
     </div>
 
       </main>
-    </div>
     </div>
 
     <div id="panelDisponibilidade" style="display:none;">
