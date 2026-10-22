@@ -1850,9 +1850,72 @@ function renderTrendChart(months, highlightLabel, svgId) {
     return { anchor, lxOff, dy };
   }
 
-  // todo mês continua rotulado (nenhuma informação sai do gráfico) — em visões longas (ciclo
-  // inteiro) só reduz o tamanho da fonte pra caber melhor, já que o espaço horizontal por mês é menor
+  // em vez de forçar todo mês a mostrar os dois rótulos (o que embaralha sempre que duas séries ou
+  // dois meses vizinhos ficam com valores próximos — caso real relatado pelo usuário em várias
+  // combinações de filtro), calcula a posição candidata de cada rótulo e só desenha os que não
+  // colidem com um já desenhado -- o ponto (bolinha) e o hover continuam presentes pra TODO mês,
+  // então nenhum dado "some": só o texto escrito em cima é que fica seletivo, igual já funciona no
+  // Mapa de 52 Semanas e na Evolução semanal da Disponibilidade/Programação.
   const labelFontSize = n > 6 ? 7 : 8;
+  const charW = labelFontSize * 0.62;
+
+  const offsO = months.map((m,i)=>{
+    let off = seriesOffset(cysO, i);
+    if (m.orcado > 0 && m.realizado > 0 && Math.abs(cysO[i] - cysR[i]) < 34) off = stackedOffset(i, true);
+    return off;
+  });
+  const offsR = months.map((m,i)=>{
+    let off = seriesOffset(cysR, i);
+    if (m.orcado > 0 && m.realizado > 0 && Math.abs(cysO[i] - cysR[i]) < 34) off = stackedOffset(i, false);
+    return off;
+  });
+  function stackedOffset(i, isOrcado) {
+    // linhas próximas nesse ponto: empilha os dois rótulos (o do ponto mais alto na tela sobe primeiro), com folga extra entre eles
+    const cyO = cysO[i], cyR = cysR[i];
+    const topCy = Math.min(cyO, cyR);
+    const gap = Math.max(cyO, cyR) - topCy;
+    const wantsUp = topCy - 22 >= 2;
+    let dyTop, dyBottom;
+    if (wantsUp) { dyTop = -10; dyBottom = -22 - gap; }
+    else { dyBottom = 20; dyTop = gap + 33; }
+    const base = seriesOffset(isOrcado ? cysO : cysR, i);
+    const oIsTop = cyO <= cyR;
+    const dy = isOrcado ? (oIsTop ? dyTop : dyBottom) : (oIsTop ? dyBottom : dyTop);
+    return { ...base, dy };
+  }
+
+  function labelBox(px, off, cy, text) {
+    const lw = text.length * charW + 3;
+    const left = off.anchor === "start" ? px + off.lxOff : (off.anchor === "end" ? px + off.lxOff - lw : px + off.lxOff - lw/2);
+    const y = cy + off.dy;
+    return { left, right: left + lw, top: y - labelFontSize - 1, bottom: y + 3 };
+  }
+  function boxesOverlap(a, b) {
+    return a.left < b.right + 3 && a.right > b.left - 3 && a.top < b.bottom + 1 && a.bottom > b.top - 1;
+  }
+
+  // ordem de prioridade: 1º/último mês, maior e menor valor de cada série, depois o resto em ordem
+  let iMaxO=0, iMinO=0, iMaxR=0, iMinR=0;
+  months.forEach((m,i)=>{
+    if (m.orcado > months[iMaxO].orcado) iMaxO=i;
+    if (m.orcado < months[iMinO].orcado) iMinO=i;
+    if (m.realizado > months[iMaxR].realizado) iMaxR=i;
+    if (m.realizado < months[iMinR].realizado) iMinR=i;
+  });
+  const priority = [0, n-1, iMaxO, iMinO, iMaxR, iMinR];
+  for (let i=0;i<n;i++) if (!priority.includes(i)) priority.push(i);
+
+  const placedBoxes = [];
+  const labelShown = new Set();
+  priority.forEach(i => {
+    [['orcado', offsO[i], cysO[i]], ['realizado', offsR[i], cysR[i]]].forEach(([key, off, cy]) => {
+      const val = months[i][key];
+      if (!(val > 0)) return;
+      const box = labelBox(xScale(i), off, cy, fmtCompact(val));
+      if (box.left < 1 || box.right > W - 1) return; // não deixa o rótulo sair do gráfico
+      if (placedBoxes.every(p => !boxesOverlap(box, p))) { placedBoxes.push(box); labelShown.add(i + "-" + key); }
+    });
+  });
 
   months.forEach((m,i)=>{
     const px = xScale(i);
@@ -1862,32 +1925,15 @@ function renderTrendChart(months, highlightLabel, svgId) {
       svg.appendChild(c);
     });
 
-    let offO = seriesOffset(cysO, i);
-    let offR = seriesOffset(cysR, i);
-    if (m.orcado > 0 && m.realizado > 0 && Math.abs(cyO - cyR) < 34) {
-      // linhas próximas nesse ponto: empilha os dois rótulos (o do ponto mais alto na tela sobe primeiro), com folga extra entre eles
-      const topCy = Math.min(cyO, cyR);
-      const gap = Math.max(cyO, cyR) - topCy;
-      const wantsUp = topCy - 22 >= 2;
-      let dyForTopSeries, dyForBottomSeries;
-      if (wantsUp) {
-        dyForTopSeries = -10;           // relativo ao ponto mais alto
-        dyForBottomSeries = -22 - gap;  // relativo ao ponto mais baixo, fica 12px acima do rótulo do ponto mais alto
-      } else {
-        dyForBottomSeries = 20;         // relativo ao ponto mais baixo
-        dyForTopSeries = gap + 33;      // relativo ao ponto mais alto, fica 13px abaixo do rótulo do ponto mais baixo
-      }
-      if (cyO <= cyR) { offO = {...offO, dy:dyForTopSeries}; offR = {...offR, dy:dyForBottomSeries}; }
-      else { offR = {...offR, dy:dyForTopSeries}; offO = {...offO, dy:dyForBottomSeries}; }
-    }
-
-    if (m.orcado > 0) {
-      const lbl = el("text",{x:px+offO.lxOff,y:cyO+offO.dy,"text-anchor":offO.anchor,"font-size":labelFontSize,fill:ink.orcado,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
+    if (m.orcado > 0 && labelShown.has(i + "-orcado")) {
+      const off = offsO[i];
+      const lbl = el("text",{x:px+off.lxOff,y:cyO+off.dy,"text-anchor":off.anchor,"font-size":labelFontSize,fill:ink.orcado,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
       lbl.textContent = fmtCompact(m.orcado);
       svg.appendChild(lbl);
     }
-    if (m.realizado > 0) {
-      const lbl = el("text",{x:px+offR.lxOff,y:cyR+offR.dy,"text-anchor":offR.anchor,"font-size":labelFontSize,fill:ink.realizado,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
+    if (m.realizado > 0 && labelShown.has(i + "-realizado")) {
+      const off = offsR[i];
+      const lbl = el("text",{x:px+off.lxOff,y:cyR+off.dy,"text-anchor":off.anchor,"font-size":labelFontSize,fill:ink.realizado,"font-weight":700,"font-family":"'IBM Plex Mono',monospace"});
       lbl.textContent = fmtCompact(m.realizado);
       svg.appendChild(lbl);
     }
