@@ -201,15 +201,24 @@ Deno.serve(async (req: Request) => {
     }).filter((r) => (r.dataProgramacao || r.dataAbertura) && (r.dataProgramacao || r.dataAbertura)! >= CYCLE_START);
 
     // agrupa por par (plano, equipamento) pra calcular a periodicidade real -- a âncora de cada
-    // ocorrência é a data de programação quando existe, senão a data de abertura (mesmo critério de
-    // sempre); precisa ser calculada ANTES de montar `reais` porque o 2º critério de atraso depende dela
+    // ocorrência pra esse cálculo é SÓ a data de programação confirmada (nunca a data de abertura).
+    // Bug real encontrado (OS 628, 2026-10-26): quando a abertura entrava como âncora, um único
+    // intervalo "ruidoso" (uma OS do mesmo par que demorou bem mais que o normal pra ser programada
+    // -- a abertura dela não reflete a periodicidade real do plano) derrubava a mediana pra bem menos
+    // do que o real (13 dias calculado vs. 25 dias reais do plano "LB25D"), fazendo a previsão
+    // estimada já nascer vencida -- atraso falso. Usando só datas de programação confirmadas o
+    // cálculo fica bem mais estável (24 dias, bem perto do real); quando um par nunca teve nenhuma
+    // programação confirmada ainda, fica sem periodicidade calculável (cai no último recurso
+    // `semBaseParaPrevisao`, protegido contra virar "atrasada" sozinho -- ver abaixo), em vez de
+    // arriscar uma estimativa poluída pela abertura.
     const pares = new Map<string, { idFmp: string; idEquipamento: string | null; tagFmp: string; descricaoFmp: string; equipamentoTag: string; equipamentoDescricao: string; setor: string; datas: string[] }>();
     mapeados.forEach((r) => {
+      if (!r.dataProgramacao) return;
       const chave = `${r.idFmp}|${r.idEquipamento || "semequip"}`;
       if (!pares.has(chave)) {
         pares.set(chave, { idFmp: r.idFmp, idEquipamento: r.idEquipamento, tagFmp: r.tagFmp, descricaoFmp: r.descricaoFmp, equipamentoTag: r.equipamentoTag, equipamentoDescricao: r.equipamentoDescricao, setor: r.setor, datas: [] });
       }
-      pares.get(chave)!.datas.push((r.dataProgramacao || r.dataAbertura)!);
+      pares.get(chave)!.datas.push(r.dataProgramacao);
     });
     const periodPorPar = new Map<string, number | null>();
     pares.forEach((p, chave) => {
