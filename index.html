@@ -5139,10 +5139,10 @@ function renderProgramacao() {
   // no filtro "Tudo" força visão mensal direto, independente do nº de dias (fica poluído por semana mesmo com ciclo curto)
   const granularity = progActivePreset === "tudo" ? "mes" : (spanDays <= 7 ? "dia" : (spanDays > 120 ? "mes" : "semana"));
   const series = granularity === "dia"
-    ? computeProgDailySeries(progData.records, progFilterStart, progFilterEnd)
+    ? computeProgDailySeries(recordsFiltradosPorTipo, progFilterStart, progFilterEnd)
     : (granularity === "mes"
-      ? computeProgMonthlySeries(progData.records, progFilterStart, progFilterEnd)
-      : computeProgWeeklySeries(progData.records, progFilterStart, progFilterEnd));
+      ? computeProgMonthlySeries(recordsFiltradosPorTipo, progFilterStart, progFilterEnd)
+      : computeProgWeeklySeries(recordsFiltradosPorTipo, progFilterStart, progFilterEnd));
 
   const granNome = { dia: "diária", semana: "semanal", mes: "mensal" }[granularity];
   const granPor = { dia: "por dia", semana: "por semana", mes: "por mês" }[granularity];
