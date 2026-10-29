@@ -51,6 +51,14 @@
 //     executante por ordem, então pegamos o primeiro nome que
 //     aparecer (apontamento de hora tem prioridade sobre recurso
 //     planejado, por ser mais próximo da execução real).
+//   - isPreventiva / temSolicitacao / prioridade / statusMelvin: campos
+//     crus (2026-10-29) pra classificar o tipo de ordem no painel —
+//     Preventiva (FichaManutencaoPreventiva preenchida), Corretiva
+//     Programada (sem plano, mas com Solicitacoes[] vinculada -- veio
+//     de um pedido e passa por programação) ou Corretiva Emergencial
+//     (sem plano e sem solicitação -- avulsa, não precisa de
+//     programação). A classificação em si é feita no index.html
+//     (tipoOrdemDe()), aqui só exportamos os campos crus que ela usa.
 //
 // Sem incremental/merge com histórico salvo: a chamada já traz o
 // ciclo inteiro de uma vez (a API aceita até 12 meses por consulta),
@@ -182,6 +190,10 @@ Deno.serve(async (req: Request) => {
         tipoManutencao: r.Tipo || "",
         setor: r.Setor || "", // usado pelo Mapa de Ativos (agrupamento Setor -> Ativo)
         idOrdemServico: r.Id,
+        isPreventiva: !!r.FichaManutencaoPreventiva,
+        temSolicitacao: !!(r.Solicitacoes && r.Solicitacoes.length),
+        prioridade: r.Prioridade || "",
+        statusMelvin: r.Status || "",
       };
     }).filter((r) => (r.dataProgramacao && r.dataProgramacao >= CYCLE_START) || (r.dataExecucao && r.dataExecucao >= CYCLE_START) || (!r.dataProgramacao && !r.dataExecucao));
 

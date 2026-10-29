@@ -536,6 +536,10 @@
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
           <span>Solicitações de Serviço</span>
         </button>
+        <button class="primary-nav-item" id="navCorretivasEmerg" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>Corretivas Emergenciais</span>
+        </button>
       </nav>
       <button class="theme-toggle" id="btnOpenAccount" type="button" style="margin-top:8px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -977,6 +981,26 @@
               <button data-preset="tudo" type="button">Tudo</button>
             </div>
           </div>
+          <div class="date-filter-row">
+            <div class="view-toggle" id="progTipoFilterToggle">
+              <button data-tipo="todas" class="active" type="button">Todas</button>
+              <button data-tipo="preventiva" type="button">Preventivas</button>
+              <button data-tipo="corretiva_programada" type="button">Corretivas programadas</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" id="progBacklogPanel" style="display:none;border-color:var(--status-warning);background:var(--cream);">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Corretivas programadas aguardando programação <span class="tag" id="progBacklogTag"></span></div>
+          <p class="empty-text" style="text-align:left;margin:0 0 10px;">Ordens com Solicitação vinculada que ainda não ganharam data de programação no Melvin — em destaque as com mais de 5 dias em aberto desde a abertura.</p>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th style="text-align:left;">Cód.</th><th style="text-align:left;">Equipamento</th><th style="text-align:left;">Aberta em</th><th style="text-align:left;">Dias em aberto</th><th style="text-align:left;">Prioridade</th></tr>
+              </thead>
+              <tbody id="progBacklogTableBody"></tbody>
+            </table>
+          </div>
         </div>
 
         <div class="kpi-row" id="progKpiRow"></div>
@@ -1279,6 +1303,86 @@
       </div>
     </div>
 
+    <div id="panelCorretivasEmerg" style="display:none;">
+      <div class="panel empty-panel" id="emergEmptyState">
+        <div class="empty-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div class="panel-title" style="justify-content:center;">Corretivas Emergenciais</div>
+        <p class="empty-text">Assim que os dados de programação chegarem do sistema Melvin, os indicadores de corretivas emergenciais (ordens avulsas, sem solicitação e sem programação) aparecem aqui.</p>
+      </div>
+
+      <div id="emergDashboard" style="display:none;">
+        <div class="panel" style="border-color:var(--status-warning);background:var(--cream);">
+          <div style="display:flex;gap:10px;align-items:flex-start;color:var(--text-strong);font-size:13px;line-height:1.5;">
+            <span style="font-size:16px;">⚠️</span>
+            <div><b>O que entra aqui.</b> Ordens corretivas abertas direto no Melvin, sem Solicitação de serviço vinculada e sem data de programação — por natureza não passam pela fila de programação. "Atrasada" usa um prazo de referência por prioridade (Alta: 1 dia, Média: 3 dias, Baixa: 7 dias, a partir da abertura) — é um ponto de partida nosso, ainda não um SLA formalizado, e dá pra ajustar.</div>
+          </div>
+        </div>
+        <div class="panel no-collapse">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>Período de referência <span class="tag" id="emergRangeTag"></span></div>
+          <div class="date-filter-row">
+            <div class="date-filter-field">
+              <label for="emergDateStart">De</label>
+              <input type="date" id="emergDateStart">
+            </div>
+            <div class="date-filter-field">
+              <label for="emergDateEnd">Até</label>
+              <input type="date" id="emergDateEnd">
+            </div>
+            <div class="view-toggle" id="emergPresets">
+              <button data-preset="semana" type="button">Esta semana</button>
+              <button data-preset="semana_anterior" type="button">Semana anterior</button>
+              <button data-preset="mes" class="active" type="button">Este mês</button>
+              <button data-preset="mes_anterior" type="button">Mês anterior</button>
+              <button data-preset="tudo" type="button">Tudo</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-row" id="emergKpiRow"></div>
+
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>Emergenciais por prioridade <span class="tag" id="emergPrioridadeTag"></span></div>
+          <div class="kpi-row" id="emergPrioridadeRow"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>Emergenciais por setor <span class="tag" id="emergSetorTag"></span></div>
+          <div class="chart-wrap"><svg id="emergSetorChart" width="100%" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg></div>
+          <div class="legend">
+            <span class="legend-item"><span class="legend-swatch" style="background:var(--saldo-neg)"></span>3 setores com mais ocorrências</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:var(--realizado)"></span>Demais setores</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>Ordens no período <span class="tag" id="emergTableTag"></span></div>
+          <div class="view-toggle" id="emergStatusFilter" style="margin-bottom:12px;">
+            <button data-status="todas" class="active" type="button">Todas</button>
+            <button data-status="aberta" type="button">Abertas</button>
+            <button data-status="em_execucao" type="button">Em execução</button>
+            <button data-status="atrasada" type="button">Atrasadas</button>
+            <button data-status="executada" type="button">Executadas</button>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th style="text-align:left;">Cód.</th><th style="text-align:left;">Equipamento</th><th style="text-align:left;">Prioridade</th><th style="text-align:left;">Aberta em</th><th style="text-align:left;">Executada</th><th style="text-align:left;">Tempo em aberto</th><th style="text-align:left;">Situação</th></tr>
+              </thead>
+              <tbody id="emergTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="disp-source-footer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
+        Dados atualizados automaticamente a partir do sistema Melvin, a cada 1 hora (mesma fonte do painel de Programação).
+        <button type="button" class="btn ghost small sync-now-btn" id="btnSyncEmergNow">Sincronizar agora</button>
+        <span class="sync-now-status" id="syncEmergStatus"></span>
+      </div>
+    </div>
+
     <div id="panelPreventivas" style="display:none;">
       <div class="panel empty-panel" id="preventEmptyState">
         <div class="empty-icon">
@@ -1370,6 +1474,10 @@
       <button class="mobile-tab-item" id="navSolicitacoesM" type="button">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
         <span>Solicit.</span>
+      </button>
+      <button class="mobile-tab-item" id="navCorretivasEmergM" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Emerg.</span>
       </button>
       <button class="mobile-tab-item" id="navPreventivasM" type="button">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="2.2" height="2.2"/><rect x="10" y="13" width="2.2" height="2.2"/><rect x="14" y="13" width="2.2" height="2.2"/></svg>
@@ -4488,6 +4596,18 @@ let progData = null;
 let progFilterStart = null;
 let progFilterEnd = null;
 let progActivePreset = "mes";
+let progTipoFilter = "todas";
+
+// classifica cada ordem em Preventiva / Corretiva Programada / Corretiva Emergencial, com base nos
+// campos crus que a sincronização já traz (ver comentário em supabase_function_sync_melvin_programacao.ts):
+// Preventiva = tem plano de preventiva; Corretiva Programada = sem plano, mas com Solicitação vinculada
+// (veio de um pedido, passa por programação); Corretiva Emergencial = sem plano e sem solicitação
+// (avulsa, aberta direto, não precisa de programação -- tem sua própria visualização, ver renderCorretivasEmerg)
+function tipoOrdemDe(r) {
+  if (r.isPreventiva) return "preventiva";
+  if (r.temSolicitacao) return "corretiva_programada";
+  return "corretiva_emergencial";
+}
 
 function parseProgramacaoWorkbook(wb) {
   const sheetName = wb.SheetNames.find(n => n.toUpperCase().includes("DATA") || n.toUpperCase().includes("PROGRAMA")) || wb.SheetNames[0];
@@ -5009,7 +5129,11 @@ function renderProgForaExecutanteChart(svgId, list) {
 /* ============ render principal do painel de Programa\u00e7\u00e3o ============ */
 function renderProgramacao() {
   if (!progData) return;
-  const range = computeProgRange(progData.records, progFilterStart, progFilterEnd);
+  const recordsFiltradosPorTipo = progTipoFilter === "todas"
+    ? progData.records
+    : progData.records.filter(r => tipoOrdemDe(r) === progTipoFilter);
+  const range = computeProgRange(recordsFiltradosPorTipo, progFilterStart, progFilterEnd);
+  renderProgBacklog(progData.records);
   const spanDays = Math.round((progFilterEnd - progFilterStart) / 86400000) + 1;
   // períodos longos (ciclo inteiro) ficam ilegíveis por semana: acima de ~4 meses passa a mostrar por mês;
   // no filtro "Tudo" força visão mensal direto, independente do nº de dias (fica poluído por semana mesmo com ciclo curto)
@@ -5134,6 +5258,34 @@ document.querySelectorAll("#progStatusFilter button").forEach(b => b.addEventLis
   document.querySelectorAll("#progStatusFilter button").forEach(x => x.classList.toggle("active", x === b));
   renderProgTableRows();
 }));
+document.querySelectorAll("#progTipoFilterToggle button").forEach(b => b.addEventListener("click", () => {
+  progTipoFilter = b.dataset.tipo;
+  document.querySelectorAll("#progTipoFilterToggle button").forEach(x => x.classList.toggle("active", x === b));
+  renderProgramacao();
+}));
+
+// corretivas programadas (tem Solicitação vinculada) que o Melvin ainda não agendou -- fila que, sem
+// isso, ficava invisível (o resto do painel de Programação só enxerga quem já tem dataProgramacao)
+function renderProgBacklog(allRecords) {
+  const hoje = dOnly(new Date());
+  const pendentes = allRecords
+    .filter(r => tipoOrdemDe(r) === "corretiva_programada" && !r.dataProgramacao && !r.dataExclusao && !r.dataEncerramento)
+    .map(r => ({ ...r, diasAberto: Math.round((hoje - r.dataCriada) / 86400000) }))
+    .sort((a, b) => b.diasAberto - a.diasAberto);
+  const panel = document.getElementById("progBacklogPanel");
+  panel.style.display = pendentes.length ? "" : "none";
+  if (!pendentes.length) return;
+  document.getElementById("progBacklogTag").textContent = `${pendentes.length} ordem(ns)`;
+  document.getElementById("progBacklogTableBody").innerHTML = pendentes.map(r => `
+    <tr>
+      <td style="text-align:left;">${esc(r.codOrdem)}</td>
+      <td style="text-align:left;">${esc(r.tag || r.descricaoEquipamento || "—")}</td>
+      <td style="text-align:left;">${r.dataCriada ? dBR(r.dataCriada) : "—"}</td>
+      <td style="text-align:left;${r.diasAberto > 5 ? `color:${COLOR_SALDO_NEG};font-weight:600;` : ""}">${r.diasAberto} dia(s)</td>
+      <td style="text-align:left;">${esc(r.prioridade || "—")}</td>
+    </tr>
+  `).join("");
+}
 
 function applyProgPreset(preset) {
   const today = dOnly(new Date());
@@ -5184,6 +5336,256 @@ document.getElementById("progDateEnd").addEventListener("change", (e) => {
   progActivePreset = null;
   document.querySelectorAll("#progPresets button").forEach(b => b.classList.remove("active"));
   renderProgramacao();
+});
+
+/* ============ Corretivas Emergenciais \u2014 c\u00e1lculo e render ============
+   Ordens corretivas sem plano de preventiva e sem Solicita\u00e7\u00e3o vinculada (ver tipoOrdemDe) \u2014
+   abertas direto no Melvin, n\u00e3o passam por programa\u00e7\u00e3o. Usa o mesmo progData da
+   Programa\u00e7\u00e3o (mesma sincroniza\u00e7\u00e3o), filtrando por data de ABERTURA (dataCriada),
+   j\u00e1 que n\u00e3o existe data de programa\u00e7\u00e3o nelas por defini\u00e7\u00e3o. */
+let emergFilterStart = null;
+let emergFilterEnd = null;
+let emergActivePreset = "mes";
+let emergTableStatusFilter = "todas";
+let emergTableRecords = [];
+
+// prazo de refer\u00eancia por prioridade pra considerar uma emergencial "atrasada" \u2014 ponto de partida
+// nosso (2026-10-29, a pedido do usu\u00e1rio: "vamos fazer assim e depois vamos ajustando"), em dias
+// corridos a partir da abertura. N\u00e3o \u00e9 um SLA formal do Melvin -- s\u00f3 ajustar os valores abaixo.
+const EMERG_SLA_DIAS = { "Alta": 1, "M\u00e9dia": 3, "Baixa": 7 };
+function emergSlaDias(prioridade) {
+  return EMERG_SLA_DIAS[prioridade] ?? EMERG_SLA_DIAS["M\u00e9dia"];
+}
+
+function initEmergFilterDefaults() {
+  const today = dOnly(new Date());
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  emergFilterStart = monthStart;
+  emergFilterEnd = today;
+  emergActivePreset = "mes";
+  document.getElementById("emergDateStart").value = dIso(monthStart);
+  document.getElementById("emergDateEnd").value = dIso(today);
+  document.querySelectorAll("#emergPresets button").forEach(b => b.classList.toggle("active", b.dataset.preset === "mes"));
+}
+
+// classifica cada ordem emergencial no per\u00edodo: "executada" (j\u00e1 tem data de execu\u00e7\u00e3o real),
+// "atrasada" (ainda aberta e j\u00e1 passou do prazo de refer\u00eancia da sua prioridade), "em_execucao"
+// (status do Melvin indica trabalho em andamento) ou "aberta" (aguardando, dentro do prazo ainda)
+function emergSituacao(r, hoje) {
+  if (r.dataExecucao) return "executada";
+  const diasAberto = Math.round((hoje - r.dataCriada) / 86400000);
+  if (diasAberto > emergSlaDias(r.prioridade)) return "atrasada";
+  if (r.statusMelvin === "EmExecucao") return "em_execucao";
+  return "aberta";
+}
+const EMERG_SITUACAO_LABEL = { aberta: "Aberta", em_execucao: "Em execu\u00e7\u00e3o", atrasada: "Atrasada", executada: "Executada" };
+const EMERG_SITUACAO_COLOR = { aberta: "#1F5FA8", em_execucao: "#B08900", atrasada: COLOR_SALDO_NEG, executada: COLOR_REALIZADO };
+
+function computeEmergRange(records, start, end) {
+  const hoje = dOnly(new Date());
+  const doPeriodo = records
+    .filter(r => tipoOrdemDe(r) === "corretiva_emergencial" && r.dataCriada && r.dataCriada >= start && r.dataCriada <= end && !r.dataExclusao)
+    .map(r => ({ ...r, situacao: emergSituacao(r, hoje) }));
+
+  const abertas = doPeriodo.filter(r => r.situacao !== "executada");
+  const emExecucao = doPeriodo.filter(r => r.situacao === "em_execucao");
+  const atrasadas = doPeriodo.filter(r => r.situacao === "atrasada");
+  const executadas = doPeriodo.filter(r => r.situacao === "executada");
+
+  const temposRealizacao = executadas.map(r => (dOnly(r.dataExecucao) - r.dataCriada) / 86400000);
+  const tempoMedioRealizacaoDias = temposRealizacao.length ? temposRealizacao.reduce((s, v) => s + v, 0) / temposRealizacao.length : 0;
+
+  const dentroDoSla = executadas.filter(r => ((dOnly(r.dataExecucao) - r.dataCriada) / 86400000) <= emergSlaDias(r.prioridade)).length;
+  const aderenciaSla = executadas.length > 0 ? (dentroDoSla / executadas.length) * 100 : 0;
+
+  return { doPeriodo, abertas, emExecucao, atrasadas, executadas, tempoMedioRealizacaoDias, aderenciaSla };
+}
+
+function computeEmergPorPrioridade(doPeriodo) {
+  const ordem = ["Alta", "M\u00e9dia", "Baixa"];
+  const porPrioridade = new Map();
+  doPeriodo.forEach(r => {
+    const p = r.prioridade || "Sem prioridade";
+    if (!porPrioridade.has(p)) porPrioridade.set(p, { total: 0, atrasadas: 0 });
+    const entry = porPrioridade.get(p);
+    entry.total++;
+    if (r.situacao === "atrasada") entry.atrasadas++;
+  });
+  const labels = Array.from(porPrioridade.keys()).sort((a, b) => {
+    const ia = ordem.indexOf(a), ib = ordem.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+  return labels.map(label => ({ label, ...porPrioridade.get(label) }));
+}
+
+function computeEmergPorSetor(doPeriodo) {
+  const porSetor = new Map();
+  doPeriodo.forEach(r => {
+    const s = r.setor || r.tag || "Sem setor";
+    porSetor.set(s, (porSetor.get(s) || 0) + 1);
+  });
+  const list = Array.from(porSetor.entries()).map(([label, total]) => ({ label, total, pct: 0 }));
+  list.sort((a, b) => b.total - a.total);
+  return list.slice(0, 10);
+}
+
+function renderCorretivasEmerg() {
+  if (!progData) return;
+  const range = computeEmergRange(progData.records, emergFilterStart, emergFilterEnd);
+  const rangeLabel = (+emergFilterStart === +emergFilterEnd) ? dBR(emergFilterStart) : `${dBR(emergFilterStart)} a ${dBR(emergFilterEnd)}`;
+  document.getElementById("emergRangeTag").textContent = rangeLabel;
+
+  document.getElementById("emergKpiRow").innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Abertas no per\u00edodo</div>
+      <div class="kpi-value">${range.abertas.length}</div>
+      <div class="kpi-sub">inclui em execu\u00e7\u00e3o e atrasadas</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:#B08900">Em execu\u00e7\u00e3o</div>
+      <div class="kpi-value">${range.emExecucao.length}</div>
+      <div class="kpi-sub">status Melvin = Em Execu\u00e7\u00e3o</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Atrasadas</div>
+      <div class="kpi-value">${range.atrasadas.length}</div>
+      <div class="kpi-sub">passou do prazo de refer\u00eancia da prioridade</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_REALIZADO}">Executadas no per\u00edodo</div>
+      <div class="kpi-value">${range.executadas.length}</div>
+      <div class="kpi-sub">${fmtPct(range.aderenciaSla)} dentro do prazo de refer\u00eancia</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Tempo m\u00e9dio de atendimento</div>
+      <div class="kpi-value">${fmtDaysPlain(range.tempoMedioRealizacaoDias)}</div>
+      <div class="kpi-sub">entre abertura e execu\u00e7\u00e3o</div>
+    </div>
+  `;
+
+  const porPrioridade = computeEmergPorPrioridade(range.doPeriodo);
+  document.getElementById("emergPrioridadeTag").textContent = `${range.doPeriodo.length} ordem(ns) no per\u00edodo`;
+  const PRIORIDADE_COLOR = { "Alta": COLOR_SALDO_NEG, "M\u00e9dia": "#B08900", "Baixa": COLOR_REALIZADO };
+  document.getElementById("emergPrioridadeRow").innerHTML = porPrioridade.length ? porPrioridade.map(p => `
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${PRIORIDADE_COLOR[p.label] || "var(--text-strong)"}">${esc(p.label)}</div>
+      <div class="kpi-value">${p.total}</div>
+      <div class="kpi-sub">${p.atrasadas} atrasada(s)</div>
+    </div>
+  `).join("") : `<div class="empty-text">Nenhuma ordem emergencial no per\u00edodo.</div>`;
+
+  const porSetor = computeEmergPorSetor(range.doPeriodo);
+  document.getElementById("emergSetorTag").textContent = `${porSetor.length} setor(es)/ativo(s)`;
+  renderProgForaExecutanteChart("emergSetorChart", porSetor);
+
+  const hoje = dOnly(new Date());
+  emergTableRecords = range.doPeriodo.slice().sort((a, b) => b.dataCriada - a.dataCriada).map(r => ({
+    ...r,
+    tempoAbertoDias: r.dataExecucao ? Math.round((dOnly(r.dataExecucao) - r.dataCriada) / 86400000) : Math.round((hoje - r.dataCriada) / 86400000),
+  }));
+  renderEmergTableRows();
+}
+
+function renderEmergTableRows() {
+  const filtered = emergTableStatusFilter === "todas" ? emergTableRecords : emergTableRecords.filter(r => r.situacao === emergTableStatusFilter);
+  document.getElementById("emergTableTag").textContent = `${filtered.length} de ${emergTableRecords.length} ordem(ns)`;
+  const tbody = document.getElementById("emergTableBody");
+  tbody.innerHTML = "";
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted3);">Nenhuma ordem para esse filtro.</td></tr>`;
+    return;
+  }
+  filtered.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.className = "prog-order-row";
+    tr.style.cursor = "pointer";
+    tr.innerHTML = `
+      <td style="text-align:left;">${esc(r.codOrdem)}</td>
+      <td style="text-align:left;">${esc(r.tag || r.descricaoEquipamento || "\u2014")}</td>
+      <td style="text-align:left;">${esc(r.prioridade || "\u2014")}</td>
+      <td style="text-align:left;">${r.dataCriada ? dBR(r.dataCriada) : "\u2014"}</td>
+      <td style="text-align:left;">${r.dataExecucao ? dBR(r.dataExecucao) : "\u2014"}</td>
+      <td style="text-align:left;">${r.tempoAbertoDias} dia(s)</td>
+      <td style="text-align:left;"><span style="color:${EMERG_SITUACAO_COLOR[r.situacao]};font-weight:600;">${EMERG_SITUACAO_LABEL[r.situacao]}</span></td>
+    `;
+    const detailTr = document.createElement("tr");
+    detailTr.className = "prog-order-detail";
+    detailTr.style.display = "none";
+    detailTr.innerHTML = `
+      <td colspan="7" style="background:var(--line2);">
+        <div style="display:flex;flex-direction:column;gap:4px;padding:4px 2px;">
+          <div><b>Descri\u00e7\u00e3o da ordem:</b> ${esc(r.descricaoOs || "\u2014")}</div>
+          <div><b>Tipo de ordem:</b> ${esc(r.tipoManutencao || "\u2014")}</div>
+          <div><b>Equipamento:</b> ${esc(r.descricaoEquipamento || r.tag || "\u2014")}</div>
+          <div><b>Setor:</b> ${esc(r.setor || "\u2014")}</div>
+        </div>
+      </td>
+    `;
+    tr.addEventListener("click", () => {
+      const isOpen = detailTr.style.display !== "none";
+      detailTr.style.display = isOpen ? "none" : "table-row";
+    });
+    tbody.appendChild(tr);
+    tbody.appendChild(detailTr);
+  });
+}
+document.querySelectorAll("#emergStatusFilter button").forEach(b => b.addEventListener("click", () => {
+  emergTableStatusFilter = b.dataset.status;
+  document.querySelectorAll("#emergStatusFilter button").forEach(x => x.classList.toggle("active", x === b));
+  renderEmergTableRows();
+}));
+
+function applyEmergPreset(preset) {
+  const today = dOnly(new Date());
+  emergActivePreset = preset;
+  document.querySelectorAll("#emergPresets button").forEach(b => b.classList.toggle("active", b.dataset.preset === preset));
+  if (preset === "semana") {
+    emergFilterStart = dWeekStartSunday(today); emergFilterEnd = dAdd(emergFilterStart, 6);
+  } else if (preset === "semana_anterior") {
+    const thisWeekStart = dWeekStartSunday(today);
+    emergFilterStart = dAdd(thisWeekStart, -7);
+    emergFilterEnd = dAdd(emergFilterStart, 6);
+  } else if (preset === "mes") {
+    emergFilterStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthEnd = new Date(today.getFullYear(), today.getMonth()+1, 0);
+    emergFilterEnd = monthEnd > today ? today : monthEnd;
+  } else if (preset === "mes_anterior") {
+    emergFilterStart = new Date(today.getFullYear(), today.getMonth()-1, 1);
+    emergFilterEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+  } else if (preset === "tudo" && progData) {
+    const emergRecords = progData.records.filter(r => tipoOrdemDe(r) === "corretiva_emergencial" && r.dataCriada);
+    let minD = emergRecords.length ? emergRecords[0].dataCriada : today;
+    let maxD = minD;
+    emergRecords.forEach(r => {
+      if (r.dataCriada < minD) minD = r.dataCriada;
+      if (r.dataCriada > maxD) maxD = r.dataCriada;
+    });
+    let rangeStart = new Date(minD.getFullYear(), minD.getMonth(), 1);
+    let rangeEnd = new Date(maxD.getFullYear(), maxD.getMonth()+1, 0);
+    if (rangeEnd > today) rangeEnd = today;
+    emergFilterStart = rangeStart; emergFilterEnd = rangeEnd;
+  }
+  document.getElementById("emergDateStart").value = dIso(emergFilterStart);
+  document.getElementById("emergDateEnd").value = dIso(emergFilterEnd);
+  renderCorretivasEmerg();
+}
+document.querySelectorAll("#emergPresets button").forEach(b => b.addEventListener("click", () => applyEmergPreset(b.dataset.preset)));
+document.getElementById("emergDateStart").addEventListener("change", (e) => {
+  emergFilterStart = dParseIso(e.target.value);
+  if (emergFilterEnd < emergFilterStart) { emergFilterEnd = emergFilterStart; document.getElementById("emergDateEnd").value = dIso(emergFilterEnd); }
+  emergActivePreset = null;
+  document.querySelectorAll("#emergPresets button").forEach(b => b.classList.remove("active"));
+  renderCorretivasEmerg();
+});
+document.getElementById("emergDateEnd").addEventListener("change", (e) => {
+  emergFilterEnd = dParseIso(e.target.value);
+  if (emergFilterEnd < emergFilterStart) { emergFilterStart = emergFilterEnd; document.getElementById("emergDateStart").value = dIso(emergFilterStart); }
+  emergActivePreset = null;
+  document.querySelectorAll("#emergPresets button").forEach(b => b.classList.remove("active"));
+  renderCorretivasEmerg();
 });
 
 /* ============ Solicita\u00e7\u00f5es de Servi\u00e7o \u2014 c\u00e1lculo e render ============
@@ -6418,6 +6820,7 @@ function switchApp(name) {
   document.getElementById("panelProgramacao").style.display = name === "programacao" ? "" : "none";
   document.getElementById("panelPlanoAcao").style.display = name === "planoacao" ? "" : "none";
   document.getElementById("panelSolicitacoes").style.display = name === "solicitacoes" ? "" : "none";
+  document.getElementById("panelCorretivasEmerg").style.display = name === "corretivas_emerg" ? "" : "none";
   document.getElementById("panelPreventivas").style.display = name === "preventivas" ? "" : "none";
   document.getElementById("navCustos").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidade").classList.toggle("active", name === "disponibilidade");
@@ -6425,6 +6828,7 @@ function switchApp(name) {
   document.getElementById("navProgramacao").classList.toggle("active", name === "programacao");
   document.getElementById("navPlanoAcao").classList.toggle("active", name === "planoacao");
   document.getElementById("navSolicitacoes").classList.toggle("active", name === "solicitacoes");
+  document.getElementById("navCorretivasEmerg").classList.toggle("active", name === "corretivas_emerg");
   document.getElementById("navPreventivas").classList.toggle("active", name === "preventivas");
   document.getElementById("navCustosM").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidadeM").classList.toggle("active", name === "disponibilidade");
@@ -6432,6 +6836,7 @@ function switchApp(name) {
   document.getElementById("navProgramacaoM").classList.toggle("active", name === "programacao");
   document.getElementById("navPlanoAcaoM").classList.toggle("active", name === "planoacao");
   document.getElementById("navSolicitacoesM").classList.toggle("active", name === "solicitacoes");
+  document.getElementById("navCorretivasEmergM").classList.toggle("active", name === "corretivas_emerg");
   document.getElementById("navPreventivasM").classList.toggle("active", name === "preventivas");
   window.scrollTo(0, 0);
   document.getElementById("pageTitle").textContent = name === "disponibilidade"
@@ -6444,12 +6849,15 @@ function switchApp(name) {
     ? "Plano de Ação — Manutenção"
     : name === "solicitacoes"
     ? "Solicitações de Serviço"
+    : name === "corretivas_emerg"
+    ? "Corretivas Emergenciais"
     : name === "preventivas"
     ? "Mapa de 52 Semanas — Preventivas"
     : "Painel de acompanhamento OPEX - Ciclo 26/27";
   if (name === "analise") renderAnaliseFalhas();
   if (name === "planoacao") renderPlanoAcao();
   if (name === "solicitacoes" && solicitacoesData) renderSolicitacoes();
+  if (name === "corretivas_emerg" && progData) renderCorretivasEmerg();
   if (name === "preventivas" && preventivasData) renderPreventivas();
 }
 document.getElementById("navCustos").addEventListener("click", () => switchApp("custos"));
@@ -6458,6 +6866,7 @@ document.getElementById("navAnaliseFalhas").addEventListener("click", () => swit
 document.getElementById("navProgramacao").addEventListener("click", () => switchApp("programacao"));
 document.getElementById("navPlanoAcao").addEventListener("click", () => switchApp("planoacao"));
 document.getElementById("navSolicitacoes").addEventListener("click", () => switchApp("solicitacoes"));
+document.getElementById("navCorretivasEmerg").addEventListener("click", () => switchApp("corretivas_emerg"));
 document.getElementById("navPreventivas").addEventListener("click", () => switchApp("preventivas"));
 document.getElementById("navCustosM").addEventListener("click", () => switchApp("custos"));
 document.getElementById("navDisponibilidadeM").addEventListener("click", () => switchApp("disponibilidade"));
@@ -6465,6 +6874,7 @@ document.getElementById("navAnaliseFalhasM").addEventListener("click", () => swi
 document.getElementById("navProgramacaoM").addEventListener("click", () => switchApp("programacao"));
 document.getElementById("navPlanoAcaoM").addEventListener("click", () => switchApp("planoacao"));
 document.getElementById("navSolicitacoesM").addEventListener("click", () => switchApp("solicitacoes"));
+document.getElementById("navCorretivasEmergM").addEventListener("click", () => switchApp("corretivas_emerg"));
 document.getElementById("navPreventivasM").addEventListener("click", () => switchApp("preventivas"));
 document.getElementById("headerLogo").src = document.querySelector(".brand-logo-sb").src;
 
@@ -6481,6 +6891,7 @@ function applyTheme(theme){
   if (currentAppName === "custos" && typeof DATA !== "undefined" && DATA) render();
   else if (currentAppName === "disponibilidade" && dispData) renderDisponibilidade();
   else if (currentAppName === "programacao" && progData) renderProgramacao();
+  else if (currentAppName === "corretivas_emerg" && progData) renderCorretivasEmerg();
   else if (currentAppName === "solicitacoes" && solicitacoesData) renderSolicitacoes();
   else if (currentAppName === "preventivas" && preventivasData) renderPreventivas();
   else if (currentAppName === "analise") renderAnaliseFalhas();
@@ -6546,6 +6957,10 @@ function init(){
     } else {
       setProgStatus(`Planilha restaurada do navegador — ${progData.records.length} ordem(ns).`, "ok");
     }
+    document.getElementById("emergDashboard").style.display = "";
+    document.getElementById("emergEmptyState").style.display = "none";
+    initEmergFilterDefaults();
+    renderCorretivasEmerg();
   }
 
   const savedSolic = loadSolicFromStorage();
@@ -6634,6 +7049,11 @@ async function syncFromCloud() {
         // Preventivas não), essa coluna ficava presa no valor antigo até a próxima vez que
         // justamente a Preventivas também mudasse. Refaz sempre que progData muda.
         if (preventivasData) renderPreventivas();
+        // Corretivas Emergenciais usa o mesmo progData (mesma sincronização) -- refaz junto
+        document.getElementById("emergDashboard").style.display = "";
+        document.getElementById("emergEmptyState").style.display = "none";
+        initEmergFilterDefaults();
+        renderCorretivasEmerg();
       } else if (row.key === RCA_STORAGE_KEY) {
         rcaStore = row.data;
         normalizeRcaStore();
@@ -6721,6 +7141,7 @@ async function syncDomainNow(btnId, statusId, functionSlug) {
 }
 document.getElementById("btnSyncDispNow").addEventListener("click", () => syncDomainNow("btnSyncDispNow", "syncDispStatus", "clever-function"));
 document.getElementById("btnSyncProgNow").addEventListener("click", () => syncDomainNow("btnSyncProgNow", "syncProgStatus", "quick-worker"));
+document.getElementById("btnSyncEmergNow").addEventListener("click", () => syncDomainNow("btnSyncEmergNow", "syncEmergStatus", "quick-worker"));
 document.getElementById("btnSyncSolicNow").addEventListener("click", () => syncDomainNow("btnSyncSolicNow", "syncSolicStatus", "super-action"));
 document.getElementById("btnSyncPreventNow").addEventListener("click", () => syncDomainNow("btnSyncPreventNow", "syncPreventStatus", "smooth-api"));
 
