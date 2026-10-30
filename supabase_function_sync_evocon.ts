@@ -118,7 +118,16 @@ Deno.serve(async (req: Request) => {
     }
     records = records.filter((r) => r.date >= CYCLE_START);
 
-    const plants = Array.from(new Set(records.map((r) => r.planta))).sort();
+    // universo de plantas: antes vinha só das paradas já classificadas como "Paradas Manutenção",
+    // então uma planta sem nenhuma parada classificada (ex.: recém-incluída na Evocon, ainda sem
+    // ninguém comentando as paradas lá) não entrava nem na lista nem no pool de horas da disponibilidade
+    // geral — subestimando a disponibilidade geral (a capacidade saudável dela ficava de fora do total).
+    // Agora o universo vem de toda estação que aparece no retorno cru da Evocon (mesmo com paradas
+    // ainda "Uncommented"), unido ao que já estava salvo pra não perder uma planta numa janela
+    // incremental sem nenhum evento dela. Com 0h de parada classificada computada = disponibilidade 100%.
+    const rawPlants = Array.from(new Set((raw as any[]).map((r) => plantCode(r.station))));
+    const knownPlants: string[] = fullFetch ? [] : (existing?.plants ?? []);
+    const plants = Array.from(new Set([...knownPlants, ...rawPlants])).sort();
     const data = { sheetName: "evocon", plants, records, coverageStart: CYCLE_START };
 
     const upsertResp = await fetch(`${supabaseUrl}/rest/v1/app_state`, {
