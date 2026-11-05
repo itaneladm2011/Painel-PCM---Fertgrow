@@ -597,6 +597,11 @@
 
     <div class="kpi-row" id="kpiRow"></div>
 
+    <div class="panel" id="cmpPanel" style="display:none;">
+      <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5h4.5a1.5 1.5 0 0 1 0 3H10a1.5 1.5 0 0 0 0 3h4.5"/></svg>CMP — Custo por Tonelada <span class="tag" id="cmpTag"></span></div>
+      <div class="kpi-row" id="cmpKpiRow"></div>
+    </div>
+
     <div class="panel alerts-panel">
       <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 21 2 21"/><line x1="12" y1="9" x2="12" y2="14"/><line x1="12" y1="17.5" x2="12" y2="17.5"/></svg>Desvios encontrados <span class="tag" id="alertsTag"></span></div>
       <div class="alert-list" id="alertList"></div>
@@ -1569,6 +1574,8 @@ function fmtCompact(v) {
   return `${sign}R$ ${Math.round(abs)}`;
 }
 const fmtPct = (v) => `${(v ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+const fmtCmp = (v) => (v === null || v === undefined) ? "—" : `${fmtBRLfull(v)}/t`;
+const fmtTon = (v) => `${(v ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} t`;
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 const COLOR_ORCADO = "#5C6B5D";
@@ -2253,6 +2260,40 @@ function render() {
     </div>
   `;
 
+  // CMP (custo por tonelada) -- Meta x Realizado, seguindo o mesmo toggle M\u00eas selecionado/Ciclo
+  // total: no Ciclo total, acumula produ\u00e7\u00e3o e custo at\u00e9 o \u00faltimo m\u00eas atualizado (mesmo corte
+  // j\u00e1 usado no "Acumulado at\u00e9 <m\u00eas>" da tend\u00eancia de fechamento) e s\u00f3 ent\u00e3o divide --
+  // n\u00e3o d\u00e1 pra somar CMP mensal direto, \u00e9 uma raz\u00e3o (R$/t), n\u00e3o um valor absoluto
+  const cmpPanel = document.getElementById("cmpPanel");
+  if (DATA.cmp) {
+    const cmpMeta = view==="mensal" ? cmpMonthValue(DATA.cmp.meta, currentMonth.label) : cmpAccumulated(DATA.cmp.meta, months, tendencia.idxAtual);
+    const cmpReal = view==="mensal" ? cmpMonthValue(DATA.cmp.realizado, currentMonth.label) : cmpAccumulated(DATA.cmp.realizado, months, tendencia.idxAtual);
+    cmpPanel.style.display = "";
+    document.getElementById("cmpTag").textContent = view==="mensal" ? currentMonth.label : `acumulado at\u00e9 ${tendencia.mesLabel}`;
+    const variacao = (cmpMeta && cmpReal) ? cmpReal.cmp - cmpMeta.cmp : null;
+    const variacaoPct = (cmpMeta && cmpReal && cmpMeta.cmp) ? (variacao / cmpMeta.cmp) * 100 : null;
+    const corVar = variacao === null ? "#221610" : (variacao > 0 ? COLOR_SALDO_NEG : COLOR_SALDO_POS);
+    document.getElementById("cmpKpiRow").innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_ORCADO}">Meta CMP</div>
+        <div class="kpi-value">${fmtCmp(cmpMeta && cmpMeta.cmp)}</div>
+        <div class="kpi-sub">${cmpMeta ? `${fmtTon(cmpMeta.producao)} \u00b7 ${fmtBRL(cmpMeta.custo)}` : "sem meta lan\u00e7ada neste per\u00edodo"}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${COLOR_REALIZADO}">Realizado CMP</div>
+        <div class="kpi-value">${fmtCmp(cmpReal && cmpReal.cmp)}</div>
+        <div class="kpi-sub">${cmpReal ? `${fmtTon(cmpReal.producao)} \u00b7 ${fmtBRL(cmpReal.custo)}` : "sem realizado lan\u00e7ado neste per\u00edodo"}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" style="color:${corVar}">Varia\u00e7\u00e3o vs. meta</div>
+        <div class="kpi-value" style="color:${corVar}">${variacao === null ? "\u2014" : `${variacao>0?"+":""}${fmtCmp(variacao)}`}</div>
+        <div class="kpi-sub">${variacaoPct === null ? "sem dado suficiente pra comparar" : `${variacaoPct>0?"+":""}${fmtPct(variacaoPct)} vs. meta`}</div>
+      </div>
+    `;
+  } else {
+    cmpPanel.style.display = "none";
+  }
+
   document.getElementById("barChartTitle").innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>Or\u00e7ado \u00d7 Realizado por ${ds.itemLabel} <span class="tag">${view==="mensal"?currentMonth.label:"ciclo 26/27"}</span>`;
   document.getElementById("groupShortTag").textContent = ds.shortTitle;
   document.getElementById("tableTitle").innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>Detalhamento por ${ds.itemLabel} <span class="tag">${view==="mensal"?currentMonth.label:"ciclo 26/27"}</span>`;
@@ -2462,6 +2503,66 @@ function parseSheetRows(rows) {
   return { groups, consolidated: { ciclo: consCiclo, months: consMonths } };
 }
 
+/* ============ Parser da aba CMP (Meta x Realizado de custo por tonelada) ============
+   Layout da aba (ver planilha "Controle de or\u00e7ado x realizado"): dois blocos empilhados, um de
+   Meta/Projetado e outro de Realizado, cada um com um par de colunas por m\u00eas (r\u00f3tulo + valor).
+   Em cada bloco mensal: t\u00edtulo "CMP <M\u00caS> PROJETADO/REALIZADO" na linha r, Produ\u00e7\u00e3o em r+1,
+   Custo Manuten\u00e7\u00e3o em r+2, e o CMP j\u00e1 calculado pela pr\u00f3pria planilha (=custo/produ\u00e7\u00e3o) em
+   r+3 -- lido direto de l\u00e1 em vez de recalculado aqui, pra respeitar a f\u00f3rmula da planilha mesmo
+   se um dia mudar. Varre a aba inteira por esse t\u00edtulo (em vez de fixar colunas), ent\u00e3o novos
+   meses adicionados mais pra direita entram sozinhos, sem precisar mexer no c\u00f3digo. */
+function parseCmpSheet(rows) {
+  const MESES_CMP = {
+    JANEIRO:"Jan", FEVEREIRO:"Fev", "MAR\u00c7O":"Mar", ABRIL:"Abr", MAIO:"Mai", JUNHO:"Jun",
+    JULHO:"Jul", AGOSTO:"Ago", SETEMBRO:"Set", OUTUBRO:"Out", NOVEMBRO:"Nov", DEZEMBRO:"Dez",
+  };
+  const get = (r,c) => (rows[r] !== undefined && rows[r][c] !== undefined && rows[r][c] !== "") ? rows[r][c] : null;
+  const headerRe = /^CMP\s+(\S+)\s+(PROJETADO|REALIZADO)\s*$/;
+
+  function scan(tipo) {
+    const out = {};
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r] || [];
+      for (let c = 0; c < row.length; c++) {
+        const v = row[c];
+        if (typeof v !== "string") continue;
+        const m = headerRe.exec(v.trim().toUpperCase());
+        if (!m || m[2] !== tipo) continue;
+        const mes = MESES_CMP[m[1]];
+        if (!mes) continue;
+        const valCol = c + 1;
+        const producao = Number(get(r+1, valCol)) || 0;
+        const custo = Number(get(r+2, valCol)) || 0;
+        const cmp = Number(get(r+3, valCol)) || (producao > 0 ? custo / producao : 0);
+        out[mes] = { producao, custo, cmp };
+      }
+    }
+    return out;
+  }
+
+  return { meta: scan("PROJETADO"), realizado: scan("REALIZADO") };
+}
+
+// valor de um bloco (meta ou realizado) pro m\u00eas selecionado, pelo r\u00f3tulo "Out/2026" -> "Out"
+function cmpMonthValue(cmpBlock, monthLabel) {
+  if (!cmpBlock) return null;
+  const abrev = String(monthLabel || "").split("/")[0];
+  return cmpBlock[abrev] || null;
+}
+// acumulado do ciclo at\u00e9 um \u00edndice de m\u00eas (inclusive) -- CMP n\u00e3o \u00e9 som\u00e1vel direto (\u00e9 uma
+// raz\u00e3o R$/t), ent\u00e3o soma produ\u00e7\u00e3o e custo dos meses com dado e s\u00f3 ent\u00e3o divide (m\u00e9dia
+// ponderada pelo volume, n\u00e3o m\u00e9dia simples dos CMPs mensais)
+function cmpAccumulated(cmpBlock, months, uptoIdx) {
+  if (!cmpBlock) return null;
+  let custo = 0, producao = 0, found = false;
+  for (let i = 0; i <= uptoIdx && i < months.length; i++) {
+    const e = cmpBlock[String(months[i].label || "").split("/")[0]];
+    if (e) { custo += e.custo; producao += e.producao; found = true; }
+  }
+  if (!found || producao <= 0) return null;
+  return { producao, custo, cmp: custo / producao };
+}
+
 /* ============ persist\u00eancia local ============ */
 function saveToStorage(data, fileName) {
   try {
@@ -2585,6 +2686,11 @@ async function handleFile(file) {
     const sheet = wb.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true });
     const parsed = parseSheetRows(rows);
+    const cmpSheetName = wb.SheetNames.find(n => n.trim().toUpperCase() === "CMP");
+    if (cmpSheetName) {
+      const cmpRows = XLSX.utils.sheet_to_json(wb.Sheets[cmpSheetName], { header: 1, defval: null, raw: true });
+      parsed.cmp = parseCmpSheet(cmpRows);
+    }
     DATA = parsed;
     viewIdx = 0; monthIdx = 0; view = "mensal";
     document.getElementById("btnMensal").classList.add("active");
