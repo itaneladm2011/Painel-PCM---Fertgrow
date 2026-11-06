@@ -995,19 +995,6 @@
           </div>
         </div>
 
-        <div class="panel" id="progBacklogPanel" style="display:none;border-color:var(--status-warning);background:var(--cream);">
-          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Corretivas programadas aguardando programação <span class="tag" id="progBacklogTag"></span></div>
-          <p class="empty-text" style="text-align:left;margin:0 0 10px;">Ordens com Solicitação vinculada que ainda não ganharam data de programação no Melvin — em destaque as com mais de 5 dias em aberto desde a abertura.</p>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr><th style="text-align:left;">Cód.</th><th style="text-align:left;">Equipamento</th><th style="text-align:left;">Aberta em</th><th style="text-align:left;">Dias em aberto</th><th style="text-align:left;">Prioridade</th></tr>
-              </thead>
-              <tbody id="progBacklogTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-
         <div class="kpi-row" id="progKpiRow"></div>
 
         <div class="panel">
@@ -1048,6 +1035,19 @@
                 <tr><th style="text-align:left;">Cód.</th><th style="text-align:left;">Equipamento</th><th style="text-align:left;">Programada</th><th style="text-align:left;">Executada</th><th style="text-align:left;">Encerrada</th><th style="text-align:left;">Executante</th><th style="text-align:left;">Status</th></tr>
               </thead>
               <tbody id="progTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel" id="progBacklogPanel" style="display:none;border-color:var(--status-warning);background:var(--cream);">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Corretivas programadas aguardando programação <span class="tag" id="progBacklogTag"></span></div>
+          <p class="empty-text" style="text-align:left;margin:0 0 10px;">Ordens com Solicitação vinculada que ainda não ganharam data de programação no Melvin — em destaque as com mais de 5 dias em aberto desde a abertura.</p>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th style="text-align:left;">Cód.</th><th style="text-align:left;">Equipamento</th><th style="text-align:left;">Aberta em</th><th style="text-align:left;">Dias em aberto</th><th style="text-align:left;">Prioridade</th></tr>
+              </thead>
+              <tbody id="progBacklogTableBody"></tbody>
             </table>
           </div>
         </div>
