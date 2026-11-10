@@ -6058,6 +6058,8 @@ function renderSolicTableRows() {
   }
   filtered.forEach(r => {
     const tr = document.createElement("tr");
+    tr.className = "solic-row";
+    tr.style.cursor = "pointer";
     const diasAtender = r.osDataAbertura ? fmtDaysPlain(diasEntre(r.dataAbertura, r.osDataAbertura)) : "\u2014";
     const diasEncerrar = r.osDataEncerramento ? fmtDaysPlain(diasEntre(r.dataAbertura, r.osDataEncerramento)) : "\u2014";
     const situacao = solicSituacaoHtml(r);
@@ -6080,7 +6082,27 @@ function renderSolicTableRows() {
       <td style="text-align:left;">${diasEncerrar}</td>
       <td style="text-align:left;">${situacao}${r.statusTexto ? ` <span class="tag">${esc(r.statusTexto)}</span>` : ""}</td>
     `;
+    const detailTr = document.createElement("tr");
+    detailTr.className = "solic-detail";
+    detailTr.style.display = "none";
+    const detailParts = [`<div><b>Descri\u00e7\u00e3o da solicita\u00e7\u00e3o:</b> ${esc(r.solicitacao || "\u2014")}</div>`];
+    if (r.idOrdemServico) {
+      detailParts.push(`<div><b>Descri\u00e7\u00e3o da OS:</b> ${r.descricaoOs ? esc(r.descricaoOs) : `<span style="color:var(--muted3);font-style:italic;">\u2014 ainda n\u00e3o dispon\u00edvel (aparece quando a Programa\u00e7\u00e3o sincronizar essa OS)</span>`}</div>`);
+    }
+    if (r.arquivada) {
+      detailParts.push(`<div><b>Justificativa do arquivamento:</b> ${esc(r.justificativaArquivar || "\u2014")}</div>`);
+    }
+    detailTr.innerHTML = `
+      <td colspan="7" style="background:var(--line2);">
+        <div style="display:flex;flex-direction:column;gap:4px;padding:4px 2px;">${detailParts.join("")}</div>
+      </td>
+    `;
+    tr.addEventListener("click", () => {
+      const isOpen = detailTr.style.display !== "none";
+      detailTr.style.display = isOpen ? "none" : "table-row";
+    });
     tbody.appendChild(tr);
+    tbody.appendChild(detailTr);
   });
 }
 document.querySelectorAll("#solicStatusFilter button").forEach(b => b.addEventListener("click", () => {

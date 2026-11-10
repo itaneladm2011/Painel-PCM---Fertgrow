@@ -36,8 +36,11 @@
 // dataEncerramento de toda OS do ciclo. Sem chamada extra ao Melvin.
 // Se a OS vinculada ainda não apareceu nesse histórico (ex.: acabou
 // de ser criada, antes da próxima sincronização de Programação
-// rodar), fica sem número/data por enquanto -- aparece na
-// sincronização seguinte, igual já acontecia antes.
+// rodar), fica sem número/data/descrição por enquanto -- aparece na
+// sincronização seguinte, igual já acontecia antes. Mesmo cruzamento
+// também resolve "descricaoOs" (texto da OS gerada, pro detalhe que
+// o painel abre ao clicar na solicitação). "justificativaArquivar"
+// vem direto do Melvin, sem precisar de cruzamento nenhum.
 //
 // SETOR: a lista (GetAll) não traz descrição de setor em texto, só
 // o id (GUID) dentro de equipamento.idsetor. Por isso o "setor"
@@ -115,8 +118,8 @@ Deno.serve(async (req: Request) => {
     const progResp = await fetch(`${supabaseUrl}/rest/v1/app_state?key=eq.${PROG_STORAGE_KEY}&select=data`, { headers: sbHeaders });
     const progRows = progResp.ok ? await progResp.json() : [];
     const progRecords: any[] = progRows?.[0]?.data?.records ?? [];
-    const osById = new Map<string, { codOrdem: unknown; dataCriada: string | null; dataEncerramento: string | null }>(
-      progRecords.filter((r) => r.idOrdemServico).map((r) => [r.idOrdemServico, { codOrdem: r.codOrdem, dataCriada: r.dataCriada, dataEncerramento: r.dataEncerramento }])
+    const osById = new Map<string, { codOrdem: unknown; dataCriada: string | null; dataEncerramento: string | null; descricaoOs: string }>(
+      progRecords.filter((r) => r.idOrdemServico).map((r) => [r.idOrdemServico, { codOrdem: r.codOrdem, dataCriada: r.dataCriada, dataEncerramento: r.dataEncerramento, descricaoOs: r.descricaoOs || "" }])
     );
 
     const raw = await fetchTodasSolicitacoes(melvinHeaders);
@@ -138,6 +141,8 @@ Deno.serve(async (req: Request) => {
           codigoOrdemServicoDestino: os?.codOrdem != null ? String(os.codOrdem) : (r.codigoOrdemServicoDestino != null ? String(r.codigoOrdemServicoDestino) : ""),
           osDataAbertura: os?.dataCriada ?? null,
           osDataEncerramento: os?.dataEncerramento ?? null,
+          descricaoOs: os?.descricaoOs || "",
+          justificativaArquivar: r.justificativaArquivar || "",
           solicitante: r.solicitante || "",
           canalTexto: r.canalTexto || "",
           prioridade: r.prioridade?.descricao || "",
