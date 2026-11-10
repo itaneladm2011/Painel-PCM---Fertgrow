@@ -6620,8 +6620,9 @@ function renderPlanoStackedChart(svgId, groups) {
     svg.appendChild(label);
 
     let cx = marginL;
-    [["noPrazo", COLOR_REALIZADO], ["atraso", "#B08900"], ["dentroPrazo", "#948F86"], ["atrasada", COLOR_SALDO_NEG]].forEach(([key, color]) => {
-      const w = Math.max(0, xScale(g[key]));
+    [["noPrazo", COLOR_REALIZADO, "#fff"], ["atraso", "#B08900", "#fff"], ["dentroPrazo", "#948F86", "#34302B"], ["atrasada", COLOR_SALDO_NEG, "#fff"]].forEach(([key, color, textColor]) => {
+      const val = g[key];
+      const w = Math.max(0, xScale(val));
       if (w > 0) {
         const rect = el("rect", { x: cx, y: gy - barH / 2, width: w, height: barH, fill: color });
         rect.style.cursor = "pointer";
@@ -6633,6 +6634,12 @@ function renderPlanoStackedChart(svgId, groups) {
         ]));
         rect.addEventListener("mouseleave", hideTooltip);
         svg.appendChild(rect);
+        const needed = String(val).length * 6 + 6;
+        if (w >= needed) {
+          const segLbl = el("text", { x: cx + w / 2, y: gy + 3.2, "text-anchor": "middle", "font-size": 9, fill: textColor, "font-weight": 700, "font-family": "'IBM Plex Mono',monospace", "pointer-events": "none" });
+          segLbl.textContent = fmtInt(val);
+          svg.appendChild(segLbl);
+        }
       }
       cx += w;
     });
