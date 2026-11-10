@@ -21,19 +21,23 @@
 // 2026-11-10). SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já existem
 // automaticamente.
 //
-// DATAS DA OS VINCULADA: SolicitacaoServico/GetAll não traz as datas
-// de abertura/encerramento da OS gerada, só o id dela
-// (idOrdemServico) e o número (codigoOrdemServicoDestino). Em vez de
-// chamar o Melvin de novo pra buscar cada OS individualmente (padrão
-// antigo que causou o bloqueio de outubro), cruzamos com o histórico
-// que a sincronização de Programação (sync-melvin-programacao) já
-// salvou em painelProgramacao_data_v1 -- mesma fonte de dado
-// (GetDadosIntegracao), já tem idOrdemServico + dataCriada +
+// DATAS E NÚMERO DA OS VINCULADA: SolicitacaoServico/GetAll traz o id
+// da OS gerada (idOrdemServico), mas NÃO as datas de abertura/
+// encerramento -- e o campo que deveria trazer o número dela
+// (codigoOrdemServicoDestino) vem sempre null nesse endpoint, mesmo
+// com idOrdemServico preenchido (confirmado em várias solicitações
+// reais já vinculadas a OS -- bug/particularidade do Melvin, não é
+// falta de permissão). Em vez de chamar o Melvin de novo pra buscar
+// cada OS individualmente (padrão antigo que causou o bloqueio de
+// outubro), cruzamos com o histórico que a sincronização de
+// Programação (sync-melvin-programacao) já salvou em
+// painelProgramacao_data_v1 -- mesma fonte de dado (GetDadosIntegracao),
+// já tem idOrdemServico + codOrdem (número) + dataCriada +
 // dataEncerramento de toda OS do ciclo. Sem chamada extra ao Melvin.
 // Se a OS vinculada ainda não apareceu nesse histórico (ex.: acabou
 // de ser criada, antes da próxima sincronização de Programação
-// rodar), fica sem data por enquanto -- aparece na sincronização
-// seguinte, igual já acontecia antes.
+// rodar), fica sem número/data por enquanto -- aparece na
+// sincronização seguinte, igual já acontecia antes.
 //
 // SETOR: a lista (GetAll) não traz descrição de setor em texto, só
 // o id (GUID) dentro de equipamento.idsetor. Por isso o "setor"
@@ -111,8 +115,8 @@ Deno.serve(async (req: Request) => {
     const progResp = await fetch(`${supabaseUrl}/rest/v1/app_state?key=eq.${PROG_STORAGE_KEY}&select=data`, { headers: sbHeaders });
     const progRows = progResp.ok ? await progResp.json() : [];
     const progRecords: any[] = progRows?.[0]?.data?.records ?? [];
-    const osById = new Map<string, { dataCriada: string | null; dataEncerramento: string | null }>(
-      progRecords.filter((r) => r.idOrdemServico).map((r) => [r.idOrdemServico, { dataCriada: r.dataCriada, dataEncerramento: r.dataEncerramento }])
+    const osById = new Map<string, { codOrdem: unknown; dataCriada: string | null; dataEncerramento: string | null }>(
+      progRecords.filter((r) => r.idOrdemServico).map((r) => [r.idOrdemServico, { codOrdem: r.codOrdem, dataCriada: r.dataCriada, dataEncerramento: r.dataEncerramento }])
     );
 
     const raw = await fetchTodasSolicitacoes(melvinHeaders);
@@ -129,7 +133,9 @@ Deno.serve(async (req: Request) => {
           statusTexto: r.statusTexto || "",
           arquivada: !!r.arquivada,
           idOrdemServico: r.idOrdemServico ?? null,
-          codigoOrdemServicoDestino: r.codigoOrdemServicoDestino != null ? String(r.codigoOrdemServicoDestino) : "",
+          // "codigoOrdemServicoDestino" da API vem sempre null (ver comentário no topo) -- o número de
+          // verdade vem do cruzamento com Programação; só cai pro campo cru se ainda não tiver cruzamento
+          codigoOrdemServicoDestino: os?.codOrdem != null ? String(os.codOrdem) : (r.codigoOrdemServicoDestino != null ? String(r.codigoOrdemServicoDestino) : ""),
           osDataAbertura: os?.dataCriada ?? null,
           osDataEncerramento: os?.dataEncerramento ?? null,
           solicitante: r.solicitante || "",
@@ -175,6 +181,7 @@ Deno.serve(async (req: Request) => {
         concluidas: records.filter((r) => r.osDataEncerramento).length,
         arquivadas: records.filter((r) => r.arquivada && !r.idOrdemServico).length,
         datasDeOsResolvidasPeloCruzamento: records.filter((r) => r.idOrdemServico && r.osDataAbertura).length,
+        numerosDeOsResolvidos: records.filter((r) => r.idOrdemServico && r.codigoOrdemServicoDestino).length,
       }),
       { headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" } },
     );
