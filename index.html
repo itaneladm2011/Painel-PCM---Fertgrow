@@ -7144,16 +7144,26 @@ const MAPA_CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none
 
 let mapaFilterText = "";
 
+// cores do status cru da OS (r.statusMelvin, vindo direto da Melvin) -- mesma paleta j\u00e1 usada no
+// resto do painel (verde=conclu\u00eddo, azul=programado, cinza=ainda n\u00e3o programado, vermelho=cancelado)
+function mapaStatusOsCor(statusMelvin) {
+  const s = (statusMelvin || "").toLowerCase();
+  if (s === "encerrada") return COLOR_REALIZADO;
+  if (s === "cancelada") return COLOR_SALDO_NEG;
+  if (s === "programada" || s === "em execu\u00e7\u00e3o") return COLOR_TRATADO;
+  return COLOR_STATUS_NEUTRAL; // Aguardando / Em planejamento / Planejada
+}
+
 function mapaAtivoDetailHtml(a) {
   const planosHtml = a.planos.size
     ? Array.from(a.planos.values()).map(p => `<div class="mapa-detail-item"><span>${esc(p)}</span></div>`).join("")
     : `<div class="mapa-detail-empty">Nenhum plano de preventiva vinculado.</div>`;
   const solicHtml = a.solicitacoesAbertas.length
-    ? a.solicitacoesAbertas.map(r => `<div class="mapa-detail-item"><span>#${esc(r.codigo ?? "\u2014")} \u2014 ${esc(r.solicitacao || "\u2014")}</span><span>${r.dataAbertura ? dBR(r.dataAbertura) : "\u2014"}</span></div>`).join("")
+    ? a.solicitacoesAbertas.map(r => `<div class="mapa-detail-item"><span>#${esc(r.codigo ?? "\u2014")} \u2014 ${esc(r.solicitacao || "\u2014")}</span><span>${solicSituacaoHtml(r)}</span></div>`).join("")
     : `<div class="mapa-detail-empty">Nenhuma solicita\u00e7\u00e3o aberta.</div>`;
   const tipoLabel = { preventiva: "Preventiva", corretiva_programada: "Corretiva programada", corretiva_emergencial: "Corretiva emergencial" };
   const osHtml = a.osAbertas.length
-    ? a.osAbertas.map(r => `<div class="mapa-detail-item"><span>#${esc(r.codOrdem ?? "\u2014")} \u2014 ${esc(r.descricaoOs || tipoLabel[tipoOrdemDe(r)] || "\u2014")}</span><span>${r.dataProgramacao ? dBR(r.dataProgramacao) : "sem programa\u00e7\u00e3o"}</span></div>`).join("")
+    ? a.osAbertas.map(r => `<div class="mapa-detail-item"><span>#${esc(r.codOrdem ?? "\u2014")} \u2014 ${esc(r.descricaoOs || tipoLabel[tipoOrdemDe(r)] || "\u2014")}</span><span style="color:${mapaStatusOsCor(r.statusMelvin)};font-weight:600;">${esc(r.statusMelvin || "\u2014")}</span></div>`).join("")
     : `<div class="mapa-detail-empty">Nenhuma OS aberta.</div>`;
   return `
     <div class="mapa-detail-section"><div class="mapa-detail-title">Planos de manuten\u00e7\u00e3o</div>${planosHtml}</div>
