@@ -273,6 +273,34 @@
   .rca-pending-item .a-name{flex:1;display:flex;flex-direction:column;gap:1px;font-weight:600;color:var(--text);}
   .rca-pending-item .a-detail{font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;color:var(--muted2);font-size:11.5px;font-weight:500;}
 
+  .mapa-tree{display:flex;flex-direction:column;}
+  .mapa-row{display:flex;align-items:center;gap:8px;padding:9px 8px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s ease;}
+  .mapa-row:hover{background:var(--line2);}
+  .mapa-row:last-child{border-bottom:none;}
+  .mapa-chevron{flex:0 0 auto;display:flex;color:var(--muted3);transition:transform .15s ease;}
+  .mapa-row.mapa-open>.mapa-chevron{transform:rotate(90deg);}
+  .mapa-icon{flex:0 0 auto;display:flex;color:var(--muted2);}
+  .mapa-label{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px;}
+  .mapa-label .mapa-name{font-weight:600;color:var(--text);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mapa-label .mapa-sub{font-family:'IBM Plex Mono',monospace;color:var(--muted2);font-size:10.5px;}
+  .mapa-badges{flex:0 0 auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+  .mapa-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--line2);color:var(--muted2);white-space:nowrap;}
+  .mapa-badge.on{background:#E6EFE9;color:var(--realizado);}
+  .mapa-badge.warn{background:var(--cream);color:#8A6A00;}
+  .mapa-badge.crit{background:#FBE5E2;color:var(--saldo-neg);}
+  :root[data-theme="dark"] .mapa-badge.on,.dark .mapa-badge.on{background:#143322;}
+  :root[data-theme="dark"] .mapa-badge.crit,.dark .mapa-badge.crit{background:#3A1E1A;}
+  .mapa-children{display:none;flex-direction:column;}
+  .mapa-children.mapa-children-l1{padding-left:26px;}
+  .mapa-children.mapa-children-l2{padding-left:26px;}
+  .mapa-detail{display:none;padding:10px 12px 14px 60px;font-size:12.5px;color:var(--text);background:var(--line2);}
+  .mapa-detail-section{margin-bottom:10px;}
+  .mapa-detail-section:last-child{margin-bottom:0;}
+  .mapa-detail-title{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted2);margin-bottom:5px;}
+  .mapa-detail-item{padding:4px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px;}
+  .mapa-detail-item:last-child{border-bottom:none;}
+  .mapa-detail-empty{color:var(--muted3);font-style:italic;}
+
   .rca-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
   @media (max-width:760px){.rca-form-grid{grid-template-columns:1fr;}}
   .rca-field{display:flex;flex-direction:column;gap:5px;}
@@ -539,6 +567,10 @@
         <button class="primary-nav-item" id="navCorretivasEmerg" type="button">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           <span>Corretivas Emergenciais</span>
+        </button>
+        <button class="primary-nav-item" id="navMapaAtivos" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><line x1="10" y1="6.5" x2="14" y2="6.5"/><line x1="17.5" y1="10" x2="17.5" y2="14"/><line x1="10" y1="17.5" x2="14" y2="17.5"/></svg>
+          <span>Mapa de Ativos</span>
         </button>
       </nav>
       <button class="theme-toggle" id="btnOpenAccount" type="button" style="margin-top:8px;">
@@ -1382,6 +1414,47 @@
       </div>
     </div>
 
+    <div id="panelMapaAtivos" style="display:none;">
+      <div class="panel empty-panel" id="mapaEmptyState">
+        <div class="empty-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/></svg>
+        </div>
+        <div class="panel-title" style="justify-content:center;">Mapa de Ativos</div>
+        <p class="empty-text">Assim que os dados de Programação, Preventivas e Solicitações estiverem carregados, a árvore de ativos aparece aqui.</p>
+      </div>
+
+      <div id="mapaDashboard" style="display:none;">
+        <div class="panel" style="border-color:var(--status-warning);background:var(--cream);">
+          <div style="display:flex;gap:10px;align-items:flex-start;color:var(--text-strong);font-size:13px;line-height:1.5;">
+            <span style="font-size:16px;">⚠️</span>
+            <div><b>Mapa parcial.</b> A Melvin ainda não libera o cadastro completo de ativos pela API — por enquanto este mapa só mostra ativos com pelo menos um registro (Ordem de Serviço, Preventiva ou Solicitação) no ciclo atual. Ativos cadastrados sem nenhuma movimentação ainda não aparecem aqui, e a cobertura de planos abaixo é calculada só entre os ativos visíveis, não da frota inteira.</div>
+          </div>
+        </div>
+
+        <div class="kpi-row" id="mapaKpiRow"></div>
+
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>Ativos com mais solicitações abertas <span class="tag">top 8</span></div>
+          <div class="chart-wrap"><svg id="mapaTopSolicChart" width="100%" viewBox="0 0 700 160" preserveAspectRatio="xMidYMid meet"></svg></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Ativos com mais corretivas emergenciais (ciclo) <span class="tag">top 8</span></div>
+          <div class="chart-wrap"><svg id="mapaTopEmergChart" width="100%" viewBox="0 0 700 160" preserveAspectRatio="xMidYMid meet"></svg></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/></svg>Árvore de ativos <span class="tag" id="mapaTreeTag"></span></div>
+          <input type="text" id="mapaFilterInput" placeholder="Filtrar por TAG, equipamento ou setor..." style="width:100%;box-sizing:border-box;margin-bottom:12px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:#FFFFFF;border:1px solid var(--panel-border);border-radius:7px;padding:8px 12px;">
+          <div id="mapaTree"></div>
+        </div>
+      </div>
+      <div class="disp-source-footer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
+        Montado a partir dos dados de Programação, Preventivas e Solicitações já carregados — sem sincronização própria, atualiza junto com eles.
+      </div>
+    </div>
+
     <div id="panelPreventivas" style="display:none;">
       <div class="panel empty-panel" id="preventEmptyState">
         <div class="empty-icon">
@@ -1481,6 +1554,10 @@
       <button class="mobile-tab-item" id="navPreventivasM" type="button">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="2.2" height="2.2"/><rect x="10" y="13" width="2.2" height="2.2"/><rect x="14" y="13" width="2.2" height="2.2"/></svg>
         <span>52 Sem.</span>
+      </button>
+      <button class="mobile-tab-item" id="navMapaAtivosM" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><line x1="10" y1="6.5" x2="14" y2="6.5"/><line x1="17.5" y1="10" x2="17.5" y2="14"/><line x1="10" y1="17.5" x2="14" y2="17.5"/></svg>
+        <span>Ativos</span>
       </button>
     </nav>
   </div>
@@ -6939,6 +7016,275 @@ document.getElementById("planoManualForm").addEventListener("submit", (e) => {
 });
 document.getElementById("btnCancelPlanoManual").addEventListener("click", () => resetPlanoManualForm());
 
+/* ============ Mapa de Ativos \u2014 montado 100% client-side, cruzando progData/preventivasData/
+   solicitacoesData por TAG do ativo (sem sincroniza\u00e7\u00e3o pr\u00f3pria, sem chamada nova ao Melvin).
+   LIMITA\u00c7\u00c3O CONHECIDA: a Melvin ainda n\u00e3o libera um cadastro completo de ativos pela API -- s\u00f3
+   enxergamos ativo que j\u00e1 apareceu em algum dos tr\u00eas pain\u00e9is (tem OS, preventiva ou solicita\u00e7\u00e3o no
+   ciclo). Por isso "cobertura de plano" aqui \u00e9 sempre "entre os ativos vis\u00edveis", nunca da frota
+   inteira -- deixado expl\u00edcito no aviso do painel pra n\u00e3o dar a entender outra coisa. ============ */
+const MAPA_SETOR_NOMES = {
+  ADM: "Administra\u00e7\u00e3o", AP: "Apoio Terceiros", ARM: "\u00c1rea de Armazenamento", CC: "Casa de Compressores",
+  DA: "Distribui\u00e7\u00e3o de Aditivo", DESC: "Descarga", ELE: "Infraestrutura El\u00e9trica", EM: "Ensacadeira M\u00f3vel",
+  EXP: "Expedi\u00e7\u00e3o e Carregamento", FAB: "F\u00e1brica", OF: "Oficina Fabril",
+  PL01: "Planta 01", PL02: "Planta 02", PL03: "Planta 03", PL04: "Planta 04",
+};
+function mapaSetorDaTag(tag) {
+  const partes = String(tag || "").split("-");
+  return partes.length >= 2 ? partes[1].toUpperCase() : "";
+}
+function mapaSetorNome(codigo) {
+  return MAPA_SETOR_NOMES[codigo] || codigo || "Sem setor identificado";
+}
+
+// agrupa os 3 pain\u00e9is por TAG de ativo -- um \u00fanico mapa com tudo que j\u00e1 sabemos de cada um
+function computeMapaAtivos() {
+  const ativos = new Map();
+  function get(tagBruta) {
+    const tag = (tagBruta || "").trim();
+    if (!tag) return null;
+    if (!ativos.has(tag)) {
+      ativos.set(tag, {
+        tag, nome: "", setor: mapaSetorDaTag(tag) || "\u2014",
+        planos: new Map(), osAbertas: [], osHistorico: [], solicitacoesAbertas: [], solicitacoesHistorico: [],
+      });
+    }
+    return ativos.get(tag);
+  }
+  (progData?.records || []).forEach(r => {
+    const a = get(r.tag);
+    if (!a) return;
+    if (!a.nome && r.descricaoEquipamento) a.nome = r.descricaoEquipamento;
+    a.osHistorico.push(r);
+    if (!r.dataEncerramento && !r.dataExclusao) a.osAbertas.push(r);
+  });
+  (preventivasData?.records || []).forEach(r => {
+    const a = get(r.equipamentoTag);
+    if (!a) return;
+    if (!a.nome && r.equipamentoDescricao) a.nome = r.equipamentoDescricao;
+    if (r.idFmp) a.planos.set(r.idFmp, r.descricaoFmp || r.idFmp);
+  });
+  (solicitacoesData?.records || []).forEach(r => {
+    const a = get(r.equipamento);
+    if (!a) return;
+    a.solicitacoesHistorico.push(r);
+    if (!r.idOrdemServico && !r.arquivada) a.solicitacoesAbertas.push(r);
+  });
+  return Array.from(ativos.values());
+}
+
+function computeMapaResumo(ativos) {
+  const bySetor = {};
+  ativos.forEach(a => {
+    if (!bySetor[a.setor]) bySetor[a.setor] = { setor: a.setor, ativos: [], comPlano: 0 };
+    bySetor[a.setor].ativos.push(a);
+    if (a.planos.size > 0) bySetor[a.setor].comPlano++;
+  });
+  const setores = Object.values(bySetor).sort((x, y) => mapaSetorNome(x.setor).localeCompare(mapaSetorNome(y.setor), "pt-BR"));
+  setores.forEach(s => s.ativos.sort((x, y) => x.tag.localeCompare(y.tag, "pt-BR")));
+  const totalAtivos = ativos.length;
+  const totalComPlano = ativos.filter(a => a.planos.size > 0).length;
+  return { setores, totalAtivos, totalComPlano };
+}
+
+function mapaTopRanking(ativos, getCount, n) {
+  return ativos.map(a => ({ label: a.tag, value: getCount(a) }))
+    .filter(x => x.value > 0)
+    .sort((x, y) => y.value - x.value)
+    .slice(0, n);
+}
+
+/* ============ gr\u00e1fico gen\u00e9rico: top-N barras horizontais simples (Mapa de Ativos) ============ */
+function renderMapaBarChart(svgId, items) {
+  const svg = document.getElementById(svgId);
+  svg.innerHTML = "";
+  const ink = chartInk();
+  const M = isMobileView();
+  const rowH = 26;
+  const marginL = M ? 92 : 130, marginR = M ? 36 : 50, marginT = 8, marginB = 8;
+  const W = M ? 360 : 700;
+  const list = items.length ? items : [];
+  if (!list.length) {
+    svg.setAttribute("viewBox", `0 0 ${W} 60`);
+    const t = el("text", { x: W / 2, y: 32, "text-anchor": "middle", "font-size": 11.5, fill: ink.axis, "font-family": "'Inter',sans-serif" });
+    t.textContent = "Nenhum ativo nessa condi\u00e7\u00e3o no ciclo atual.";
+    svg.appendChild(t);
+    return;
+  }
+  const plotW = W - marginL - marginR;
+  const plotH = list.length * rowH;
+  const H = plotH + marginT + marginB;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const maxVal = Math.max(1, ...list.map(a => a.value));
+  const niceMax = niceCeiling(maxVal);
+  const xScale = v => (v / niceMax) * plotW;
+  const ticks = 4;
+  for (let i = 0; i <= ticks; i++) {
+    const x = marginL + xScale(niceMax * i / ticks);
+    svg.appendChild(el("line", { x1: x, y1: marginT, x2: x, y2: marginT + plotH, stroke: ink.grid, "stroke-dasharray": "3 3" }));
+  }
+  list.forEach((a, i) => {
+    const gy = marginT + i * rowH + rowH / 2;
+    const barH = Math.min(16, rowH * 0.62);
+    const w = Math.max(0, xScale(a.value));
+    const label = el("text", { x: marginL - 8, y: gy + 3.5, "text-anchor": "end", "font-size": 9.5, fill: ink.label, "font-weight": 600, "font-family": "'IBM Plex Mono',monospace" });
+    label.textContent = a.label;
+    svg.appendChild(label);
+    const bar = el("rect", { x: marginL, y: gy - barH / 2, width: w, height: barH, rx: 4, fill: ink.saldoNeg });
+    svg.appendChild(bar);
+    const vLabel = el("text", { x: marginL + w + 6, y: gy + 3.5, "text-anchor": "start", "font-size": 9, fill: ink.saldoNeg, "font-weight": 700, "font-family": "'IBM Plex Mono',monospace" });
+    vLabel.textContent = fmtInt(a.value);
+    svg.appendChild(vLabel);
+  });
+  svg.appendChild(el("line", { x1: marginL, y1: marginT, x2: marginL, y2: marginT + plotH, stroke: ink.axisLine }));
+}
+
+const MAPA_ICON_PASTA = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>';
+const MAPA_ICON_ATIVO = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="12" cy="12" r="3"/></svg>';
+const MAPA_CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>';
+
+let mapaFilterText = "";
+
+function mapaAtivoDetailHtml(a) {
+  const planosHtml = a.planos.size
+    ? Array.from(a.planos.values()).map(p => `<div class="mapa-detail-item"><span>${esc(p)}</span></div>`).join("")
+    : `<div class="mapa-detail-empty">Nenhum plano de preventiva vinculado.</div>`;
+  const solicHtml = a.solicitacoesAbertas.length
+    ? a.solicitacoesAbertas.map(r => `<div class="mapa-detail-item"><span>#${esc(r.codigo ?? "\u2014")} \u2014 ${esc(r.solicitacao || "\u2014")}</span><span>${r.dataAbertura ? dBR(r.dataAbertura) : "\u2014"}</span></div>`).join("")
+    : `<div class="mapa-detail-empty">Nenhuma solicita\u00e7\u00e3o aberta.</div>`;
+  const tipoLabel = { preventiva: "Preventiva", corretiva_programada: "Corretiva programada", corretiva_emergencial: "Corretiva emergencial" };
+  const osHtml = a.osAbertas.length
+    ? a.osAbertas.map(r => `<div class="mapa-detail-item"><span>#${esc(r.codOrdem ?? "\u2014")} \u2014 ${esc(r.descricaoOs || tipoLabel[tipoOrdemDe(r)] || "\u2014")}</span><span>${r.dataProgramacao ? dBR(r.dataProgramacao) : "sem programa\u00e7\u00e3o"}</span></div>`).join("")
+    : `<div class="mapa-detail-empty">Nenhuma OS aberta.</div>`;
+  return `
+    <div class="mapa-detail-section"><div class="mapa-detail-title">Planos de manuten\u00e7\u00e3o</div>${planosHtml}</div>
+    <div class="mapa-detail-section"><div class="mapa-detail-title">Solicita\u00e7\u00f5es abertas</div>${solicHtml}</div>
+    <div class="mapa-detail-section"><div class="mapa-detail-title">Ordens de servi\u00e7o abertas</div>${osHtml}</div>
+  `;
+}
+
+function mapaBuildAtivoRow(a) {
+  const wrap = document.createElement("div");
+  const row = document.createElement("div");
+  row.className = "mapa-row";
+  const emergCount = a.osHistorico.filter(r => tipoOrdemDe(r) === "corretiva_emergencial").length;
+  row.innerHTML = `
+    <span class="mapa-chevron">${MAPA_CHEVRON}</span>
+    <span class="mapa-icon">${MAPA_ICON_ATIVO}</span>
+    <span class="mapa-label"><span class="mapa-name">${esc(a.nome || a.tag)}</span><span class="mapa-sub">${esc(a.tag)}</span></span>
+    <span class="mapa-badges">
+      <span class="mapa-badge ${a.planos.size ? "on" : ""}">${a.planos.size} plano(s)</span>
+      <span class="mapa-badge ${a.solicitacoesAbertas.length ? "warn" : ""}">${a.solicitacoesAbertas.length} solic.</span>
+      <span class="mapa-badge ${a.osAbertas.length ? "warn" : ""}">${a.osAbertas.length} OS aberta(s)</span>
+      ${emergCount ? `<span class="mapa-badge crit">${emergCount} emerg.</span>` : ""}
+    </span>
+  `;
+  const detail = document.createElement("div");
+  detail.className = "mapa-detail";
+  detail.innerHTML = mapaAtivoDetailHtml(a);
+  row.addEventListener("click", () => {
+    const open = row.classList.toggle("mapa-open");
+    detail.style.display = open ? "block" : "none";
+  });
+  wrap.appendChild(row);
+  wrap.appendChild(detail);
+  return wrap;
+}
+
+function mapaBuildSetorRow(s) {
+  const wrap = document.createElement("div");
+  const row = document.createElement("div");
+  row.className = "mapa-row";
+  const comPlanoLabel = s.ativos.length ? `${Math.round((s.comPlano / s.ativos.length) * 100)}% c/ plano` : "0% c/ plano";
+  row.innerHTML = `
+    <span class="mapa-chevron">${MAPA_CHEVRON}</span>
+    <span class="mapa-icon">${MAPA_ICON_PASTA}</span>
+    <span class="mapa-label"><span class="mapa-name">${esc(mapaSetorNome(s.setor))}</span><span class="mapa-sub">${esc(s.setor)}</span></span>
+    <span class="mapa-badges">
+      <span class="mapa-badge">${s.ativos.length} ativo(s)</span>
+      <span class="mapa-badge ${s.comPlano === s.ativos.length && s.ativos.length ? "on" : ""}">${comPlanoLabel}</span>
+    </span>
+  `;
+  const children = document.createElement("div");
+  children.className = "mapa-children mapa-children-l1";
+  s.ativos.forEach(a => children.appendChild(mapaBuildAtivoRow(a)));
+  row.addEventListener("click", () => {
+    const open = row.classList.toggle("mapa-open");
+    children.style.display = open ? "flex" : "none";
+  });
+  wrap.appendChild(row);
+  wrap.appendChild(children);
+  return wrap;
+}
+
+function renderMapaTree() {
+  let ativos = computeMapaAtivos();
+  if (mapaFilterText) {
+    const q = mapaFilterText.toLowerCase();
+    ativos = ativos.filter(a =>
+      a.tag.toLowerCase().includes(q) ||
+      (a.nome || "").toLowerCase().includes(q) ||
+      mapaSetorNome(a.setor).toLowerCase().includes(q)
+    );
+  }
+  const resumo = computeMapaResumo(ativos);
+  const container = document.getElementById("mapaTree");
+  container.innerHTML = "";
+  container.className = "mapa-tree";
+  if (!resumo.setores.length) {
+    container.innerHTML = `<div class="mapa-detail-empty" style="padding:16px 4px;">Nenhum ativo encontrado${mapaFilterText ? " para esse filtro" : ""}.</div>`;
+  } else {
+    resumo.setores.forEach(s => container.appendChild(mapaBuildSetorRow(s)));
+  }
+  document.getElementById("mapaTreeTag").textContent = `${resumo.totalAtivos} ativo(s) em ${resumo.setores.length} setor(es)`;
+  return resumo;
+}
+
+function renderMapaAtivos() {
+  const temDado = !!(progData?.records?.length || preventivasData?.records?.length || solicitacoesData?.records?.length);
+  document.getElementById("mapaEmptyState").style.display = temDado ? "none" : "";
+  document.getElementById("mapaDashboard").style.display = temDado ? "" : "none";
+  if (!temDado) return;
+
+  const ativosTodos = computeMapaAtivos();
+  const resumo = computeMapaResumo(ativosTodos);
+  const pctCobertura = resumo.totalAtivos ? Math.round((resumo.totalComPlano / resumo.totalAtivos) * 100) : 0;
+  const topSolic = mapaTopRanking(ativosTodos, a => a.solicitacoesAbertas.length, 8);
+  const topEmerg = mapaTopRanking(ativosTodos, a => a.osHistorico.filter(r => tipoOrdemDe(r) === "corretiva_emergencial").length, 8);
+
+  document.getElementById("mapaKpiRow").innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Ativos mapeados</div>
+      <div class="kpi-value">${resumo.totalAtivos}</div>
+      <div class="kpi-sub">com pelo menos 1 registro no ciclo</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_REALIZADO}">Cobertura de plano</div>
+      <div class="kpi-value">${fmtPct(pctCobertura)}</div>
+      <div class="kpi-sub">${resumo.totalComPlano} de ${resumo.totalAtivos} ativos vis\u00edveis</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Mais solicita\u00e7\u00f5es abertas</div>
+      <div class="kpi-value" style="font-size:18px;">${topSolic[0] ? esc(topSolic[0].label) : "\u2014"}</div>
+      <div class="kpi-sub">${topSolic[0] ? `${topSolic[0].value} em aberto` : "nenhuma em aberto"}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:${COLOR_SALDO_NEG}">Mais corretivas emergenciais</div>
+      <div class="kpi-value" style="font-size:18px;">${topEmerg[0] ? esc(topEmerg[0].label) : "\u2014"}</div>
+      <div class="kpi-sub">${topEmerg[0] ? `${topEmerg[0].value} no ciclo` : "nenhuma no ciclo"}</div>
+    </div>
+  `;
+
+  renderMapaBarChart("mapaTopSolicChart", topSolic);
+  renderMapaBarChart("mapaTopEmergChart", topEmerg);
+  renderMapaTree();
+}
+let mapaFilterDebounce = null;
+document.getElementById("mapaFilterInput").addEventListener("input", (e) => {
+  clearTimeout(mapaFilterDebounce);
+  const v = e.target.value;
+  mapaFilterDebounce = setTimeout(() => { mapaFilterText = v.trim(); renderMapaTree(); }, 150);
+});
+
 /* ============ navega\u00e7\u00e3o entre pain\u00e9is (Custos / Disponibilidade) ============ */
 let currentAppName = "custos";
 function switchApp(name) {
@@ -6951,6 +7297,7 @@ function switchApp(name) {
   document.getElementById("panelSolicitacoes").style.display = name === "solicitacoes" ? "" : "none";
   document.getElementById("panelCorretivasEmerg").style.display = name === "corretivas_emerg" ? "" : "none";
   document.getElementById("panelPreventivas").style.display = name === "preventivas" ? "" : "none";
+  document.getElementById("panelMapaAtivos").style.display = name === "mapa_ativos" ? "" : "none";
   document.getElementById("navCustos").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidade").classList.toggle("active", name === "disponibilidade");
   document.getElementById("navAnaliseFalhas").classList.toggle("active", name === "analise");
@@ -6959,6 +7306,7 @@ function switchApp(name) {
   document.getElementById("navSolicitacoes").classList.toggle("active", name === "solicitacoes");
   document.getElementById("navCorretivasEmerg").classList.toggle("active", name === "corretivas_emerg");
   document.getElementById("navPreventivas").classList.toggle("active", name === "preventivas");
+  document.getElementById("navMapaAtivos").classList.toggle("active", name === "mapa_ativos");
   document.getElementById("navCustosM").classList.toggle("active", name === "custos");
   document.getElementById("navDisponibilidadeM").classList.toggle("active", name === "disponibilidade");
   document.getElementById("navAnaliseFalhasM").classList.toggle("active", name === "analise");
@@ -6967,6 +7315,7 @@ function switchApp(name) {
   document.getElementById("navSolicitacoesM").classList.toggle("active", name === "solicitacoes");
   document.getElementById("navCorretivasEmergM").classList.toggle("active", name === "corretivas_emerg");
   document.getElementById("navPreventivasM").classList.toggle("active", name === "preventivas");
+  document.getElementById("navMapaAtivosM").classList.toggle("active", name === "mapa_ativos");
   window.scrollTo(0, 0);
   document.getElementById("pageTitle").textContent = name === "disponibilidade"
     ? "Painel de acompanhamento - Disponibilidade de ativos"
@@ -6982,12 +7331,15 @@ function switchApp(name) {
     ? "Corretivas Emergenciais"
     : name === "preventivas"
     ? "Mapa de 52 Semanas — Preventivas"
+    : name === "mapa_ativos"
+    ? "Mapa de Ativos"
     : "Painel de acompanhamento OPEX - Ciclo 26/27";
   if (name === "analise") renderAnaliseFalhas();
   if (name === "planoacao") renderPlanoAcao();
   if (name === "solicitacoes" && solicitacoesData) renderSolicitacoes();
   if (name === "corretivas_emerg" && progData) renderCorretivasEmerg();
   if (name === "preventivas" && preventivasData) renderPreventivas();
+  if (name === "mapa_ativos") renderMapaAtivos();
 }
 document.getElementById("navCustos").addEventListener("click", () => switchApp("custos"));
 document.getElementById("navDisponibilidade").addEventListener("click", () => switchApp("disponibilidade"));
@@ -6997,6 +7349,7 @@ document.getElementById("navPlanoAcao").addEventListener("click", () => switchAp
 document.getElementById("navSolicitacoes").addEventListener("click", () => switchApp("solicitacoes"));
 document.getElementById("navCorretivasEmerg").addEventListener("click", () => switchApp("corretivas_emerg"));
 document.getElementById("navPreventivas").addEventListener("click", () => switchApp("preventivas"));
+document.getElementById("navMapaAtivos").addEventListener("click", () => switchApp("mapa_ativos"));
 document.getElementById("navCustosM").addEventListener("click", () => switchApp("custos"));
 document.getElementById("navDisponibilidadeM").addEventListener("click", () => switchApp("disponibilidade"));
 document.getElementById("navAnaliseFalhasM").addEventListener("click", () => switchApp("analise"));
@@ -7005,6 +7358,7 @@ document.getElementById("navPlanoAcaoM").addEventListener("click", () => switchA
 document.getElementById("navSolicitacoesM").addEventListener("click", () => switchApp("solicitacoes"));
 document.getElementById("navCorretivasEmergM").addEventListener("click", () => switchApp("corretivas_emerg"));
 document.getElementById("navPreventivasM").addEventListener("click", () => switchApp("preventivas"));
+document.getElementById("navMapaAtivosM").addEventListener("click", () => switchApp("mapa_ativos"));
 document.getElementById("headerLogo").src = document.querySelector(".brand-logo-sb").src;
 
 const SUN_ICON = '<path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4l1.4-1.4M17 7l1.4-1.4"/><circle cx="12" cy="12" r="4"/>';
@@ -7024,6 +7378,7 @@ function applyTheme(theme){
   else if (currentAppName === "solicitacoes" && solicitacoesData) renderSolicitacoes();
   else if (currentAppName === "preventivas" && preventivasData) renderPreventivas();
   else if (currentAppName === "analise") renderAnaliseFalhas();
+  else if (currentAppName === "mapa_ativos") renderMapaAtivos();
 }
 document.getElementById("themeToggle").addEventListener("click", () => {
   const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
@@ -7183,6 +7538,8 @@ async function syncFromCloud() {
         document.getElementById("emergEmptyState").style.display = "none";
         initEmergFilterDefaults();
         renderCorretivasEmerg();
+        // Mapa de Ativos cruza progData + preventivasData + solicitacoesData -- refaz se estiver aberto
+        if (currentAppName === "mapa_ativos") renderMapaAtivos();
       } else if (row.key === RCA_STORAGE_KEY) {
         rcaStore = row.data;
         normalizeRcaStore();
@@ -7214,6 +7571,7 @@ async function syncFromCloud() {
         document.getElementById("solicEmptyState").style.display = "none";
         initSolicFilterDefaults();
         renderSolicitacoes();
+        if (currentAppName === "mapa_ativos") renderMapaAtivos();
       } else if (row.key === PREVENT_STORAGE_KEY) {
         const raw = row.data;
         const records = raw.records.map(r => ({
@@ -7229,6 +7587,7 @@ async function syncFromCloud() {
         document.getElementById("preventDashboard").style.display = "";
         document.getElementById("preventEmptyState").style.display = "none";
         renderPreventivas();
+        if (currentAppName === "mapa_ativos") renderMapaAtivos();
       }
     }
     setCloudStatus(anyApplied ? "Atualizado com dados da nuvem" : "Sincronizado com a nuvem", "ok");
