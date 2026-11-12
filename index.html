@@ -7162,13 +7162,14 @@ function mapaAtivoDetailHtml(a) {
     ? a.solicitacoesAbertas.map(r => `<div class="mapa-detail-item"><span>#${esc(r.codigo ?? "\u2014")} \u2014 ${esc(r.solicitacao || "\u2014")}</span><span>${solicSituacaoHtml(r)}</span></div>`).join("")
     : `<div class="mapa-detail-empty">Nenhuma solicita\u00e7\u00e3o aberta.</div>`;
   const tipoLabel = { preventiva: "Preventiva", corretiva_programada: "Corretiva programada", corretiva_emergencial: "Corretiva emergencial" };
-  const osHtml = a.osAbertas.length
-    ? a.osAbertas.map(r => `<div class="mapa-detail-item"><span>#${esc(r.codOrdem ?? "\u2014")} \u2014 ${esc(r.descricaoOs || tipoLabel[tipoOrdemDe(r)] || "\u2014")}</span><span style="color:${mapaStatusOsCor(r.statusMelvin)};font-weight:600;">${esc(r.statusMelvin || "\u2014")}</span></div>`).join("")
-    : `<div class="mapa-detail-empty">Nenhuma OS aberta.</div>`;
+  const osOrdenadas = a.osHistorico.slice().sort((x, y) => (y.dataCriada || 0) - (x.dataCriada || 0));
+  const osHtml = osOrdenadas.length
+    ? osOrdenadas.map(r => `<div class="mapa-detail-item"><span>#${esc(r.codOrdem ?? "\u2014")} \u2014 ${esc(r.descricaoOs || tipoLabel[tipoOrdemDe(r)] || "\u2014")}${r.dataCriada ? ` <span style="opacity:.6;">(${dBR(r.dataCriada)})</span>` : ""}</span><span style="color:${mapaStatusOsCor(r.statusMelvin)};font-weight:600;">${esc(r.statusMelvin || "\u2014")}</span></div>`).join("")
+    : `<div class="mapa-detail-empty">Nenhuma OS no ciclo atual.</div>`;
   return `
     <div class="mapa-detail-section"><div class="mapa-detail-title">Planos de manuten\u00e7\u00e3o</div>${planosHtml}</div>
     <div class="mapa-detail-section"><div class="mapa-detail-title">Solicita\u00e7\u00f5es abertas</div>${solicHtml}</div>
-    <div class="mapa-detail-section"><div class="mapa-detail-title">Ordens de servi\u00e7o abertas</div>${osHtml}</div>
+    <div class="mapa-detail-section"><div class="mapa-detail-title">Ordens de servi\u00e7o no ciclo atual</div>${osHtml}</div>
   `;
 }
 
@@ -7185,7 +7186,7 @@ function mapaBuildAtivoRow(a) {
       <span class="mapa-badge ${a.planos.size ? "on" : ""}">${a.planos.size} plano(s)</span>
       <span class="mapa-badge ${a.solicitacoesAbertas.length ? "warn" : ""}">${a.solicitacoesAbertas.length} solic.</span>
       <span class="mapa-badge ${a.osAbertas.length ? "warn" : ""}">${a.osAbertas.length} OS aberta(s)</span>
-      ${emergCount ? `<span class="mapa-badge crit">${emergCount} emerg.</span>` : ""}
+      ${emergCount ? `<span class="mapa-badge crit" title="Emergenciais no ciclo atual (inclui já encerradas)">${emergCount} emerg.</span>` : ""}
     </span>
   `;
   const detail = document.createElement("div");
